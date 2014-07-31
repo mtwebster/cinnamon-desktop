@@ -236,7 +236,7 @@
       <_summary>Suspend the system</_summary>
       <_description>Suspend the system</_description>
     </key>
-    <key name="sleep" type="as">
+    <key name="hibernate" type="as">
       <default>['XF86Suspend', 'XF86Hibernate']</default>
       <_summary>Hibernate the system</_summary>
       <_description>Hibernate the system</_description>
