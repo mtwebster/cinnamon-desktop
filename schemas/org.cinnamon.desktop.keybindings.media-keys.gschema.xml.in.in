@@ -161,16 +161,6 @@
       <_summary>Toggle contrast</_summary>
       <_description>Binding to toggle the interface contrast</_description>
     </key>
-    <key name="magnifier-zoom-in" type="as">
-      <default>['&lt;Alt&gt;&lt;Super&gt;equal']</default>
-      <_summary>Magnifier zoom in</_summary>
-      <_description>Binding for the magnifier to zoom in</_description>
-    </key>
-    <key name="magnifier-zoom-out" type="as">
-      <default>['&lt;Alt&gt;&lt;Super&gt;minus']</default>
-      <_summary>Magnifier zoom out</_summary>
-      <_description>Binding for the magnifier to zoom out</_description>
-    </key>
     <key name="touchpad-toggle" type="as">
       <default>['XF86TouchpadToggle']</default>
       <_summary>Toggle the touchpad on and off</_summary>
