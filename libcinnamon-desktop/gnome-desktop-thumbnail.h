@@ -107,7 +107,7 @@ GdkPixbuf *gnome_desktop_thumbnail_scale_down_pixbuf (GdkPixbuf          *pixbuf
 
 /* Thumbnail folder checking and fixing utils */
 void       gnome_desktop_thumbnail_cache_fix_permissions (void);
-gboolean   gnome_desktop_thumbnail_cache_check_permissions (gboolean dirs_only);
+gboolean   gnome_desktop_thumbnail_cache_check_permissions (gboolean quick);
 
 
 G_END_DECLS

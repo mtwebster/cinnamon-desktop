@@ -1764,21 +1764,21 @@ static gboolean
 access_ok (const gchar *path, uid_t uid, gid_t gid)
 {
     /* user mode will always trip on this */
-    if (g_access (path, R_OK|W_OK) != 0) {g_printerr ("access %d\n", errno);
+    if (g_access (path, R_OK|W_OK) != 0) {
         if (errno != ENOENT)
             return FALSE;
         else
             return TRUE;
     }
-g_printerr ("access was ok\n");
+
     /* root will need to check against the real user */
 
     GStatBuf buf;
 
     gint ret = g_stat (path, &buf);
 
-    if (ret == 0) {g_printerr ("wtf\n");
-        if (buf.st_uid != uid || buf.st_gid != gid || (((buf.st_mode & ~S_ISDIR) & (S_IRUSR|S_IWUSR)) != 0))
+    if (ret == 0) {
+        if (buf.st_uid != uid || buf.st_gid != gid || (buf.st_mode & (S_IRUSR|S_IWUSR)) == 0)
             return FALSE;
     }
 
@@ -1811,19 +1811,14 @@ recursively_fix_file (const gchar *path, uid_t uid, gid_t gid)
 }
 
 static gboolean
-recursively_check_file (const gchar *path, uid_t uid, gid_t gid, gboolean dirs_only)
+recursively_check_file (const gchar *path, uid_t uid, gid_t gid)
 {
-    gboolean is_dir = g_file_test (path, G_FILE_TEST_IS_DIR);
-g_printerr ("%s is dir: %d\n", path, is_dir);
-    if (dirs_only && !is_dir)
-        return TRUE;
-
     if (!access_ok (path, uid, gid))
         return FALSE;
 
     gboolean ret = TRUE;
 
-    if (is_dir) {
+    if (g_file_test (path, G_FILE_TEST_IS_DIR)) {
         GDir *dir = g_dir_open (path, 0, NULL);
 
         if (dir) {
@@ -1833,7 +1828,7 @@ g_printerr ("%s is dir: %d\n", path, is_dir);
                 gchar *filename;
                 filename = g_build_filename (path, name, NULL);
 
-                if (!recursively_check_file (filename, uid, gid, dirs_only)) {
+                if (!recursively_check_file (filename, uid, gid)) {
                     ret = FALSE;
                 }
 
@@ -1845,6 +1840,36 @@ g_printerr ("%s is dir: %d\n", path, is_dir);
 
             g_dir_close (dir);
         }
+    }
+
+    return ret;
+}
+
+static gboolean
+check_subfolder_permissions_only (const gchar *path, uid_t uid, gid_t gid)
+{
+    gboolean ret = TRUE;
+
+    GDir *dir = g_dir_open (path, 0, NULL);
+
+    if (dir) {
+        const char *name;
+
+        while ((name = g_dir_read_name (dir))) {
+            gchar *filename;
+            filename = g_build_filename (path, name, NULL);
+
+            if (!access_ok (filename, uid, gid)) {
+                ret = FALSE;
+            }
+
+            g_free (filename);
+
+            if (!ret)
+                break;
+        }
+
+        g_dir_close (dir);
     }
 
     return ret;
@@ -1904,8 +1929,8 @@ gnome_desktop_thumbnail_cache_fix_permissions (void)
 
 /**
  * gnome_desktop_cache_check_permissions:
- * @dirs_only: if TRUE, only do a quick check of directory ownership
- * This is less serious than thumbnail ownership issues, and is faster.
+ * @quick: if TRUE, only do a quick check of directory ownersip
+ * This is more serious than thumbnail ownership issues, and is faster.
  *
  * Returns whether there are any ownership issues with the thumbnail
  * folders and existing thumbnails for the *currently logged-in* user.
@@ -1918,19 +1943,23 @@ gnome_desktop_thumbnail_cache_fix_permissions (void)
  **/
 
 gboolean
-gnome_desktop_thumbnail_cache_check_permissions (gboolean dirs_only)
+gnome_desktop_thumbnail_cache_check_permissions (gboolean quick)
 {
     gboolean ret = TRUE;
 
     struct passwd *pwent;
-g_printerr ("checking\n");
     pwent = get_session_user_pwent ();
 
     gchar *cache_dir = g_build_filename (pwent->pw_dir, ".cache", "thumbnails", NULL);
-g_printerr ("%s -> %s\n", pwent->pw_name, cache_dir);
-    if (!access_ok (cache_dir, pwent->pw_uid, pwent->pw_gid))// ||
-        // !recursively_check_file (cache_dir, pwent->pw_uid, pwent->pw_gid, dirs_only))
-        ret = FALSE;;
+
+    if (!access_ok (cache_dir, pwent->pw_uid, pwent->pw_gid))
+        ret = FALSE;
+
+    if (quick) {
+        ret = check_subfolder_permissions_only (cache_dir, pwent->pw_uid, pwent->pw_gid);
+    } else {
+        ret = recursively_check_file (cache_dir, pwent->pw_uid, pwent->pw_gid);
+    }
 
     g_free (cache_dir);
 
