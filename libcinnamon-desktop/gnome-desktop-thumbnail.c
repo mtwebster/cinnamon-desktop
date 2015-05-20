@@ -1952,8 +1952,10 @@ gnome_desktop_thumbnail_cache_check_permissions (gboolean quick)
 
     gchar *cache_dir = g_build_filename (pwent->pw_dir, ".cache", "thumbnails", NULL);
 
-    if (!access_ok (cache_dir, pwent->pw_uid, pwent->pw_gid))
+    if (!access_ok (cache_dir, pwent->pw_uid, pwent->pw_gid)) {
         ret = FALSE;
+        goto out;
+    }
 
     if (quick) {
         ret = check_subfolder_permissions_only (cache_dir, pwent->pw_uid, pwent->pw_gid);
@@ -1961,6 +1963,7 @@ gnome_desktop_thumbnail_cache_check_permissions (gboolean quick)
         ret = recursively_check_file (cache_dir, pwent->pw_uid, pwent->pw_gid);
     }
 
+out:
     g_free (cache_dir);
 
     return ret;
