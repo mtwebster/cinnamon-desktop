@@ -1176,9 +1176,9 @@ gnome_bg_create_surface (GnomeBG	    *bg,
 					   pm_width, pm_height);
 	}
 	else {
-		surface = gdk_window_create_similar_surface (window,
-                                                             CAIRO_CONTENT_COLOR,
-                                                             pm_width, pm_height);
+		surface = gdk_window_create_similar_image_surface (window,
+                                                           CAIRO_FORMAT_ARGB32,
+                                                           pm_width, pm_height, 0);
 	}
 
 	if (surface == NULL)
@@ -1708,7 +1708,74 @@ gnome_bg_create_and_set_surface_as_root (GnomeBG *bg, GdkWindow *root_window, Gd
     cairo_surface_destroy (surface);
 }
 
-/* Implementation of the pixbuf cache */
+/**
+ * gnome_bg_create_and_set_surface_of_widget:
+ * @widget: the #GtkWidget to set the surface of
+ **/
+void
+gnome_bg_create_and_set_surface_of_widget (GnomeBG *bg, GtkWidget *widget)
+{
+    int width, height;
+    cairo_surface_t *surface;
+    cairo_pattern_t *pattern;
+    GdkRectangle     monitor_geometry;
+
+    g_printerr ("gnome_bg_get_filename %s\n", gnome_bg_get_filename (bg));
+    g_return_if_fail (widget != NULL);
+
+    g_object_ref (widget);
+
+    GdkWindow *win = gtk_widget_get_window (widget);
+    GdkScreen *screen = gtk_widget_get_screen (widget);
+
+    gint monitor = gdk_screen_get_monitor_at_window (screen, win);
+    gdk_screen_get_monitor_geometry (screen, monitor, &monitor_geometry);
+    
+    width = monitor_geometry.width;
+    height = monitor_geometry.height;
+
+    surface = gnome_bg_create_surface (bg, win, width, height, FALSE);
+    cairo_surface_reference (surface);
+
+
+    pattern = cairo_pattern_create_for_surface (surface);
+    gdk_window_set_background_pattern (win, pattern);
+
+    // cairo_surface_destroy (surface);
+    cairo_pattern_destroy (pattern);
+
+    g_object_unref (widget);
+}
+
+/**
+ * gnome_bg_create_and_set_gtk_image:
+ **/
+void
+gnome_bg_create_and_set_gtk_image (GnomeBG *bg, GtkImage *image, gint width, gint height)
+{
+    cairo_surface_t *surface;
+    GdkRectangle     monitor_geometry;
+
+    g_return_if_fail (image != NULL);
+
+    g_object_ref (image);
+
+    GdkWindow *win = gtk_widget_get_window (GTK_WIDGET (image));
+
+    if (!win) {
+        g_object_unref (image);
+        g_printerr ("GtkImage must be realized before setting its surface\n");
+        return;
+    }
+
+    surface = gnome_bg_create_surface (bg, win, width, height, FALSE);
+
+    gtk_image_set_from_surface (image, surface);
+    
+    g_object_unref (image);
+}
+
+ // Implementation of the pixbuf cache 
 struct _SlideShow
 {
 	gint ref_count;
