@@ -1771,7 +1771,7 @@ gnome_bg_create_and_set_gtk_image (GnomeBG *bg, GtkImage *image, gint width, gin
     surface = gnome_bg_create_surface (bg, win, width, height, FALSE);
 
     gtk_image_set_from_surface (image, surface);
-    
+    cairo_surface_destroy (surface);
     g_object_unref (image);
 }
 
