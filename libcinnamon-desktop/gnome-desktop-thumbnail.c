@@ -49,6 +49,8 @@
 
 #define SECONDS_BETWEEN_STATS 10
 
+#define THUMBNAILERS_SETTINGS_SCHEMA_ID "org.cinnamon.desktop.thumbnailers"
+#define THUMBNAIL_CACHE_SETTINGS_SCHEMA_ID "org.cinnamon.desktop.thumbnail-cache"
 struct _GnomeDesktopThumbnailFactoryPrivate {
   GnomeDesktopThumbnailSize size;
 
@@ -63,13 +65,15 @@ struct _GnomeDesktopThumbnailFactoryPrivate {
   gboolean disabled : 1;
   gchar **disabled_types;
 
+  gchar *cache_path;
+
   gboolean permissions_problem;
   gboolean needs_chown;
   uid_t real_uid;
   gid_t real_gid;
 };
 
-static const char *appname = "gnome-thumbnail-factory";
+static const char *appname = "cinnamon-thumbnail-factory";
 
 static void gnome_desktop_thumbnail_factory_init          (GnomeDesktopThumbnailFactory      *factory);
 static void gnome_desktop_thumbnail_factory_class_init    (GnomeDesktopThumbnailFactoryClass *class);
@@ -508,6 +512,7 @@ gnome_desktop_thumbnail_factory_finalize (GObject *object)
 
   g_clear_pointer (&priv->disabled_types, g_strfreev);
   g_clear_object (&priv->settings);
+  g_clear_pointer (&priv->cache_path, g_free);
 
   if (G_OBJECT_CLASS (parent_class)->finalize)
     (* G_OBJECT_CLASS (parent_class)->finalize) (object);
@@ -821,6 +826,7 @@ static void
 gnome_desktop_thumbnail_factory_init (GnomeDesktopThumbnailFactory *factory)
 {
   GnomeDesktopThumbnailFactoryPrivate *priv;
+  GSettings *cache_settings;
   
   factory->priv = GNOME_DESKTOP_THUMBNAIL_FACTORY_GET_PRIVATE (factory);
 
@@ -838,8 +844,19 @@ gnome_desktop_thumbnail_factory_init (GnomeDesktopThumbnailFactory *factory)
 
   g_mutex_init (&priv->lock);
 
-  priv->settings = g_settings_new ("org.cinnamon.desktop.thumbnailers");
+  priv->settings = g_settings_new (THUMBNAILERS_SETTINGS_SCHEMA_ID);
   priv->disabled = g_settings_get_boolean (priv->settings, "disable-all");
+
+  cache_settings = g_settings_new (THUMBNAIL_CACHE_SETTINGS_SCHEMA_ID);
+  priv->cache_path = g_settings_get_string (cache_settings, "user-cache-dir");
+
+  if (g_strcmp0 (priv->cache_path, "") == 0)
+    {
+      g_free (priv->cache_path);
+
+      priv->cache_path = g_build_filename (g_get_home_dir (), ".cinnamon", NULL);
+    }
+
   if (!priv->disabled)
     priv->disabled_types = g_settings_get_strv (priv->settings, "disable");
   g_signal_connect (priv->settings, "changed::disable-all",
@@ -851,6 +868,8 @@ gnome_desktop_thumbnail_factory_init (GnomeDesktopThumbnailFactory *factory)
 
   if (!priv->disabled)
     gnome_desktop_thumbnail_factory_load_thumbnailers (factory);
+
+  g_object_unref (cache_settings);
 }
 
 static void
@@ -928,11 +947,11 @@ gnome_desktop_thumbnail_factory_lookup (GnomeDesktopThumbnailFactory *factory,
 
   file = g_strconcat (g_checksum_get_string (checksum), ".png", NULL);
   
-  path = g_build_filename (g_get_user_cache_dir (),
-			   "thumbnails",
-			   (priv->size == GNOME_DESKTOP_THUMBNAIL_SIZE_NORMAL)?"normal":"large",
-			   file,
-			   NULL);
+  path = g_build_filename (factory->priv->cache_path,
+                           "thumbnails",
+                           (priv->size == GNOME_DESKTOP_THUMBNAIL_SIZE_NORMAL)?"normal":"large",
+                           file,
+                           NULL);
   g_free (file);
 
   pixbuf = gdk_pixbuf_new_from_file (path, NULL);
@@ -989,11 +1008,11 @@ gnome_desktop_thumbnail_factory_has_valid_failed_thumbnail (GnomeDesktopThumbnai
 
   file = g_strconcat (g_checksum_get_string (checksum), ".png", NULL);
 
-  path = g_build_filename (g_get_user_cache_dir (),
-			   "thumbnails/fail",
-			   appname,
-			   file,
-			   NULL);
+  path = g_build_filename (factory->priv->cache_path,
+                           "thumbnails/fail",
+                           appname,
+                           file,
+                           NULL);
   g_free (file);
 
   pixbuf = gdk_pixbuf_new_from_file (path, NULL);
@@ -1357,9 +1376,10 @@ make_thumbnail_dirs (GnomeDesktopThumbnailFactory *factory)
 
   res = FALSE;
 
-  thumbnail_dir = g_build_filename (g_get_user_cache_dir (),
-				    "thumbnails",
-				    NULL);
+  thumbnail_dir = g_build_filename (factory->priv->cache_path,
+                                    "thumbnails",
+                                    NULL);
+
   if (!g_file_test (thumbnail_dir, G_FILE_TEST_IS_DIR))
     {
       g_mkdir (thumbnail_dir, 0700);
@@ -1393,9 +1413,10 @@ make_thumbnail_fail_dirs (GnomeDesktopThumbnailFactory *factory)
 
   res = FALSE;
 
-  thumbnail_dir = g_build_filename (g_get_user_cache_dir (),
-				    "thumbnails",
-				    NULL);
+  thumbnail_dir = g_build_filename (factory->priv->cache_path,
+                                    "thumbnails",
+                                    NULL);
+
   if (!g_file_test (thumbnail_dir, G_FILE_TEST_IS_DIR))
     {
       g_mkdir (thumbnail_dir, 0700);
@@ -1471,11 +1492,11 @@ gnome_desktop_thumbnail_factory_save_thumbnail (GnomeDesktopThumbnailFactory *fa
 
   file = g_strconcat (g_checksum_get_string (checksum), ".png", NULL);
 
-  path = g_build_filename (g_get_user_cache_dir (),
-			   "thumbnails",
-			   (priv->size == GNOME_DESKTOP_THUMBNAIL_SIZE_NORMAL)?"normal":"large",
-			   file,
-			   NULL);
+  path = g_build_filename (factory->priv->cache_path,
+                           "thumbnails",
+                           (priv->size == GNOME_DESKTOP_THUMBNAIL_SIZE_NORMAL) ? "normal" : "large",
+                           file,
+                           NULL);
 
   g_free (file);
 
@@ -1580,11 +1601,12 @@ gnome_desktop_thumbnail_factory_create_failed_thumbnail (GnomeDesktopThumbnailFa
 
   file = g_strconcat (g_checksum_get_string (checksum), ".png", NULL);
 
-  path = g_build_filename (g_get_user_cache_dir (),
-			   "thumbnails/fail",
-			   appname,
-			   file,
-			   NULL);
+  path = g_build_filename (factory->priv->cache_path,
+                           "thumbnails/fail",
+                           appname,
+                           file,
+                           NULL);
+
   g_free (file);
 
   g_checksum_free (checksum);
@@ -1647,40 +1669,6 @@ gnome_desktop_thumbnail_md5 (const char *uri)
   return g_compute_checksum_for_data (G_CHECKSUM_MD5,
                                       (const guchar *) uri,
                                       strlen (uri));
-}
-
-/**
- * gnome_desktop_thumbnail_path_for_uri:
- * @uri: an uri
- * @size: a thumbnail size
- *
- * Returns the filename that a thumbnail of size @size for @uri would have.
- *
- * Return value: an absolute filename
- *
- * Since: 2.2
- **/
-char *
-gnome_desktop_thumbnail_path_for_uri (const char         *uri,
-				      GnomeDesktopThumbnailSize  size)
-{
-  char *md5;
-  char *file;
-  char *path;
-
-  md5 = gnome_desktop_thumbnail_md5 (uri);
-  file = g_strconcat (md5, ".png", NULL);
-  g_free (md5);
-  
-  path = g_build_filename (g_get_user_cache_dir (),
-			   "thumbnails",
-			   (size == GNOME_DESKTOP_THUMBNAIL_SIZE_NORMAL)?"normal":"large",
-			   file,
-			   NULL);
-    
-  g_free (file);
-
-  return path;
 }
 
 /**
@@ -1880,18 +1868,29 @@ check_subfolder_permissions_only (const gchar *path, uid_t uid, gid_t gid)
 void
 gnome_desktop_thumbnail_cache_fix_permissions (void)
 {
+    GSettings *settings;
+    gchar *cache_path;
     struct passwd *pwent;
+
+    settings = g_settings_new (THUMBNAIL_CACHE_SETTINGS_SCHEMA_ID);
+    cache_path = g_settings_get_string (settings, "user-cache-dir");
 
     pwent = gnome_desktop_get_session_user_pwent ();
 
-    gchar *cache_dir = g_build_filename (pwent->pw_dir, ".cache", "thumbnails", NULL);
+    if (g_strcmp0 (cache_path, "") == 0)
+    {
+      g_free (cache_path);
 
-    if (!access_ok (cache_dir, pwent->pw_uid, pwent->pw_gid))
-        fix_owner (cache_dir, pwent->pw_uid, pwent->pw_gid);
+      cache_path = g_build_filename (pwent->pw_dir, ".cinnamon", "thumbnails", NULL);
+    }
 
-    recursively_fix_file (cache_dir, pwent->pw_uid, pwent->pw_gid);
+    if (!access_ok (cache_path, pwent->pw_uid, pwent->pw_gid))
+        fix_owner (cache_path, pwent->pw_uid, pwent->pw_gid);
 
-    g_free (cache_dir);
+    recursively_fix_file (cache_path, pwent->pw_uid, pwent->pw_gid);
+
+    g_object_unref (settings);
+    g_free (cache_path);
 }
 
 /**
@@ -1916,26 +1915,38 @@ gnome_desktop_thumbnail_cache_fix_permissions (void)
 gboolean
 gnome_desktop_thumbnail_cache_check_permissions (GnomeDesktopThumbnailFactory *factory, gboolean quick)
 {
+    GSettings *settings;
+    gchar *cache_path;
+    struct passwd *pwent;
+
     gboolean checks_out = TRUE;
 
-    struct passwd *pwent;
+    settings = g_settings_new (THUMBNAIL_CACHE_SETTINGS_SCHEMA_ID);
+    cache_path = g_settings_get_string (settings, "user-cache-dir");
+
     pwent = gnome_desktop_get_session_user_pwent ();
 
-    gchar *cache_dir = g_build_filename (pwent->pw_dir, ".cache", "thumbnails", NULL);
+    if (g_strcmp0 (cache_path, "") == 0)
+    {
+      g_free (cache_path);
 
-    if (!access_ok (cache_dir, pwent->pw_uid, pwent->pw_gid)) {
+      cache_path = g_build_filename (pwent->pw_dir, ".cinnamon", "thumbnails", NULL);
+    }
+
+    if (!access_ok (cache_path, pwent->pw_uid, pwent->pw_gid)) {
         checks_out = FALSE;
         goto out;
     }
 
     if (quick) {
-        checks_out = check_subfolder_permissions_only (cache_dir, pwent->pw_uid, pwent->pw_gid);
+        checks_out = check_subfolder_permissions_only (cache_path, pwent->pw_uid, pwent->pw_gid);
     } else {
-        checks_out = recursively_check_file (cache_dir, pwent->pw_uid, pwent->pw_gid);
+        checks_out = recursively_check_file (cache_path, pwent->pw_uid, pwent->pw_gid);
     }
 
 out:
-    g_free (cache_dir);
+    g_object_unref (settings);
+    g_free (cache_path);
 
     if (factory)
         factory->priv->permissions_problem = !checks_out;

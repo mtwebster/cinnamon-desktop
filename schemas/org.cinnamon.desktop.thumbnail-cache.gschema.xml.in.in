@@ -9,5 +9,10 @@
       <default>512</default>
       <_description>Maximum size of the thumbnail cache, in megabytes. Set to -1 to disable cleaning.</_description>
     </key>
+    <key name="user-cache-dir" type="s">
+      <default>''</default>
+      <_summary>Location for the thumbnail cache</_summary>
+      <_description>This will override the default location of '~/.cinnamon' as the root folder from which the thumbnail directory tree will be created.  Useful if you wish to have your thumbnails non-persistent such as on a tmp or ram folder.</_description>
+    </key>
   </schema>
 </schemalist>

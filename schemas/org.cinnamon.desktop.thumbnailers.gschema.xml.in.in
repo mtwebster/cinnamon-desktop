@@ -9,7 +9,6 @@
         independent on whether they are independently disabled/enabled.
       </_description>
     </key>
-
     <key name="disable" type="as">
       <default>["image/jp2"]</default>
       <_summary>
