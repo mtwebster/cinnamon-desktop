@@ -1,0 +1,1 @@
+option('deprecation_flags', type : 'boolean', value : false)
