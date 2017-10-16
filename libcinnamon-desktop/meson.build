@@ -17,7 +17,7 @@ gsystem_lib = static_library('gsystem',
   install : false,
 )
 
-introspection_sources = [
+libcinnamon_desktop_gir_src = [
   'gnome-desktop-utils.c',
   'gnome-desktop-thumbnail.c',
   'gnome-thumbnail-pixbuf-utils.c',
@@ -40,7 +40,7 @@ libcinnamon_desktop_src = [
   'gnome-rr-private.h',
   'edid.h',
   'private.h',
-] + introspection_sources
+] + libcinnamon_desktop_gir_src
 
 libcinnamon_desktop_hdr = [
   'cdesktop-enums.h',
@@ -101,4 +101,20 @@ install_data(
 )
 # endif
 
-#TODO introspection
+
+gir_c_includes = []
+foreach hdr : libcinnamon_desktop_hdr
+  gir_c_includes += '--c-include=libcinnamon-desktop/' + hdr
+endforeach
+
+gnome.generate_gir(libcinnamon_desktop,
+  sources: libcinnamon_desktop_gir_src + libcinnamon_desktop_hdr,
+  namespace: 'CinnamonDesktop',
+  nsversion: '3.0',
+  export_packages: 'cinnamon-desktop',
+  identifier_prefix: 'Gnome',
+  symbol_prefix: 'gnome_',
+  includes: ['GObject-2.0', 'Gtk-3.0', 'CDesktopEnums-3.0'],
+  extra_args: ['-DGNOME_DESKTOP_USE_UNSTABLE_API'] + gir_c_includes,
+  install: true,
+)

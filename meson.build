@@ -21,12 +21,13 @@ pkgconfig = import('pkgconfig')
 i18n      = import('i18n')
 gnome     = import('gnome')
 
-cc = meson.get_compiler('c')
-prefix = get_option('prefix')
-buildtype = get_option('buildtype')
+cc                = meson.get_compiler('c')
+prefix            = get_option('prefix')
+buildtype         = get_option('buildtype')
 deprecation_flags = get_option('deprecation_flags')
 
 conf.set_quoted('PACKAGE_VERSION', meson.project_version())
+conf.set('datadir', get_option('datadir'))
 
 if deprecation_flags
   add_global_arguments('-Wno-deprecated-declarations', language : 'c')
@@ -34,7 +35,7 @@ endif
 
 ################################################################################
 
-math    = cc.find_library('m', required : true)
+math    = cc.find_library('m')
 
 accserv = dependency('accountsservice')
 gdk_pixb= dependency('gdk-pixbuf-2.0', version : '>=2.22.0')
@@ -73,24 +74,25 @@ cvc_deps = cinnamon_deps + [
   gobject,
 ]
 
-# XKB_BASE=$($PKG_CONFIG --variable xkb_base xkeyboard-config)
-
-# DISTCHECK_CONFIGURE_FLAGS = --enable-introspection
-
-rootInclude = include_directories('.')
-
 ################################################################################
 # Translation
+# gettext_package = 'cinnamon-desktop'
+gettext_package = meson.project_name()
 
 conf.set('HAVE_GETTEXT',  true)
 conf.set('HAVE_LOCALE_H', cc.has_header('locale.h'))
 conf.set('ENABLE_NLS',    cc.has_header('libintl.h'))
 
 localedir = join_paths([ get_option('prefix'), get_option('localedir') ])
-conf.set_quoted('GETTEXT_PACKAGE', 'cinnamon-desktop')
+conf.set_quoted('GETTEXT_PACKAGE',gettext_package)
 conf.set_quoted('GNOMELOCALEDIR', localedir)
 conf.set_quoted('LOCALE_DIR',     localedir)
 conf.set_quoted('LOCALEDIR',      localedir)
+
+################################################################################
+# XKB_BASE=$($PKG_CONFIG --variable xkb_base xkeyboard-config)
+
+rootInclude = include_directories('.')
 
 configure_file(
   input : 'config.h.meson.in',
@@ -101,7 +103,7 @@ configure_file(
 subdir('files')
 subdir('libcinnamon-desktop')
 subdir('libcvc')
-# subdir('po')
+subdir('po')
 subdir('schemas')
 
 

@@ -30,6 +30,7 @@ libcvc_hdr = [
   'gvc-mixer-stream.h',
   'gvc-mixer-ui-device.h',
 ]
+
 libcvc = shared_library('cvc',
   libcvc_src,
   include_directories : rootInclude,
@@ -37,6 +38,16 @@ libcvc = shared_library('cvc',
   install : true,
   version : '0.0.0'
   # version : LT_VERSION,
+)
+
+gnome.generate_gir(libcvc,
+  sources: libcvc_gir_src + libcvc_hdr,
+  namespace: 'Cvc',
+  nsversion: '1.0',
+  identifier_prefix: 'Gvc',
+  symbol_prefix: 'gvc_',
+  includes: ['GObject-2.0', 'Gio-2.0'],
+  install: true,
 )
 
 libcvc_incdir = join_paths('cinnamon-desktop', 'libcvc')
