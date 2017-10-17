@@ -28,7 +28,12 @@ deprecation_flags = get_option('deprecation_flags')
 
 conf.set_quoted('PACKAGE_VERSION', meson.project_version())
 
+if deprecation_flags
+  add_global_arguments('-Wno-deprecated-declarations', language : 'c')
+endif
+
 ################################################################################
+
 math    = cc.find_library('m', required : true)
 
 accserv = dependency('accountsservice')
@@ -87,16 +92,10 @@ conf.set_quoted('GNOMELOCALEDIR', localedir)
 conf.set_quoted('LOCALE_DIR',     localedir)
 conf.set_quoted('LOCALEDIR',      localedir)
 
-################################################################################
-
-if deprecation_flags
-  add_global_arguments('-Wno-deprecated-declarations', language : 'c')
-endif
-
 configure_file(
-input : 'config.h.meson.in',
-output: 'config.h',
-configuration : conf
+  input : 'config.h.meson.in',
+  output: 'config.h',
+  configuration : conf
 )
 
 subdir('files')
