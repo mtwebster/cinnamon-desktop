@@ -108,6 +108,15 @@ foreach hdr : libcinnamon_desktop_hdr
 endforeach
 
 gnome.generate_gir(libcinnamon_desktop,
+  sources: 'cdesktop-enums.h',
+  namespace: 'CDesktopEnums',
+  nsversion: '3.0',
+  identifier_prefix: 'CDesktop',
+  symbol_prefix: 'c_desktop',
+  extra_args: ['-DGNOME_DESKTOP_USE_UNSTABLE_API'] + gir_c_includes,
+  install: true,
+)
+gnome.generate_gir(libcinnamon_desktop,
   sources: libcinnamon_desktop_gir_src + libcinnamon_desktop_hdr,
   namespace: 'CinnamonDesktop',
   nsversion: '3.0',
