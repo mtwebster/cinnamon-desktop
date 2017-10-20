@@ -127,3 +127,20 @@ gnome.generate_gir(libcinnamon_desktop,
   extra_args: ['-DGNOME_DESKTOP_USE_UNSTABLE_API'] + gir_c_includes,
   install: true,
 )
+
+custom_target('gsettings-enums',
+  input : libcinnamon_desktop_hdr,
+  output: 'org.cinnamon.desktop.enums.xml',
+  capture : true,
+  command : ['glib-mkenums',
+    '--comments', '<!-- @comment@ -->',
+    '--fhead', '<schemalist>',
+    '--vhead', '  <@type@ id=\'org.cinnamon.desktop.@EnumName@\'>',
+    '--vprod', '    <value nick=\'@valuenick@\' value=\'@valuenum@\'/>',
+    '--vtail', '  </@type@>',
+    '--ftail', '</schemalist>',
+    '@INPUT@'
+  ],
+  install : true,
+  install_dir : join_paths(get_option('datadir'), 'glib-2.0', 'schemas'),
+)

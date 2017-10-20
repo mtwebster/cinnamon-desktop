@@ -100,6 +100,8 @@ configure_file(
   configuration : conf
 )
 
+po_subdir = join_paths(meson.current_source_dir(), 'po')
+
 subdir('files')
 subdir('libcinnamon-desktop')
 subdir('libcvc')
