@@ -1,7 +1,7 @@
 # Meson build file
 
 # https://github.com/linuxmint/cinnamon-desktop
-project('cinnamon-desktop', 'c', version: '3.5.0',
+project('cinnamon-desktop', 'c', version: '3.6.2',
   meson_version: '>=0.40.0'
 )
 
