@@ -55,7 +55,6 @@ gnome.generate_gir(libcvc,
     'Gio-2.0',
   ],
   install: true,
-  install_dir_typelib: join_paths(get_option('prefix'), 'lib', 'girepository-1.0'),
 )
 
 

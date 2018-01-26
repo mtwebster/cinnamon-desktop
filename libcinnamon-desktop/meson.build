@@ -24,8 +24,10 @@ libcinnamon_desktop_sources = [
   libcinnamon_desktop_gir_sources,
 ]
 
-libcinnamon_desktop_headers = [
+cdesktop_headers = [
   'cdesktop-enums.h',
+]
+libcinnamon_desktop_headers = [
   'gnome-bg-crossfade.h',
   'gnome-bg.h',
   'gnome-desktop-thumbnail.h',
@@ -54,7 +56,7 @@ libcinnamon_desktop = shared_library('cinnamon-desktop',
 )
 
 install_headers(
-  libcinnamon_desktop_headers,
+  libcinnamon_desktop_headers + cdesktop_headers,
   subdir: join_paths('cinnamon-desktop', 'libcinnamon-desktop')
 )
 
@@ -99,9 +101,11 @@ cdesktop_gir = gnome.generate_gir(libcinnamon_desktop,
   nsversion: '3.0',
   identifier_prefix: 'CDesktop',
   symbol_prefix: 'c_desktop',
-  extra_args: ['-DGNOME_DESKTOP_USE_UNSTABLE_API'] + gir_c_includes,
+  extra_args: [
+    '-DGNOME_DESKTOP_USE_UNSTABLE_API'
+    gir_c_includes,
+  ],
   install: true,
-  install_dir_typelib: join_paths(get_option('prefix'), 'lib', 'girepository-1.0'),
 )
 gnome.generate_gir(libcinnamon_desktop,
   sources: libcinnamon_desktop_gir_sources + libcinnamon_desktop_headers,
@@ -111,9 +115,11 @@ gnome.generate_gir(libcinnamon_desktop,
   identifier_prefix: 'Gnome',
   symbol_prefix: 'gnome_',
   includes: ['GObject-2.0', 'Gtk-3.0', cdesktop_gir[0], ],
-  extra_args: ['-DGNOME_DESKTOP_USE_UNSTABLE_API'] + gir_c_includes,
+  extra_args: [
+    '-DGNOME_DESKTOP_USE_UNSTABLE_API'
+    gir_c_includes,
+  ],
   install: true,
-  install_dir_typelib: join_paths(get_option('prefix'), 'lib', 'girepository-1.0'),
 )
 
 custom_target('gsettings-enums',
