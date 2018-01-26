@@ -1,21 +1,5 @@
-libcinnamon_desktop_inc = [
-  rootInclude,
-  include_directories('libgsystem')
-]
+subdir('libgsystem')
 
-gsystem_src = [
-  'libgsystem/gsystem-local-alloc.h',
-  'libgsystem/gsystem-local-alloc.c',
-  'libgsystem/gsystem-file-utils.h',
-  'libgsystem/gsystem-file-utils.c',
-  'libgsystem/libgsystem.h',
-]
-gsystem_lib = static_library('gsystem',
-  gsystem_src,
-  dependencies : cinnamon_deps,
-  include_directories : libcinnamon_desktop_inc,
-  install : false,
-)
 
 libcinnamon_desktop_gir_sources = [
   'gnome-desktop-utils.c',
@@ -40,7 +24,7 @@ libcinnamon_desktop_sources = [
   'gnome-rr-private.h',
   'edid.h',
   'private.h',
-  libcinnamon_desktop_gir_sources
+  libcinnamon_desktop_gir_sources,
 ]
 
 libcinnamon_desktop_headers = [
@@ -60,14 +44,14 @@ libcinnamon_desktop_headers = [
 
 libcinnamon_desktop = shared_library('cinnamon-desktop',
   libcinnamon_desktop_sources,
-  include_directories : libcinnamon_desktop_inc,
-  c_args : [ '-DPNP_IDS="."', '-DXKB_BASE="/usr/share/X11/xkb"' ],
+  include_directories: [ rootInclude, libgsystem_include, ],
   c_args: [
+    '-DG_LOG_DOMAIN="@0@"'.format('CinnamonDesktop'),
     '-DPNP_IDS="@0@"'.format(pnp_ids),
     '-DXKB_BASE="@0@"'.format(xkb_base),
   ],
   dependencies: cinnamon_deps,
-  link_whole: gsystem_lib,
+  link_whole: libgsystem,
   install: true,
   version: LT_VERSION,
 )

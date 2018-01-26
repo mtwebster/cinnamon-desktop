@@ -18,7 +18,8 @@ libcvc_sources = [
   'gvc-mixer-control-private.h',
   'gvc-mixer-stream-private.h',
   'gvc-pulseaudio-fake.h',
-] + libcvc_gir_sources
+  libcvc_gir_sources,
+]
 
 libcvc_headers = [
   'gvc-channel-map.h',
@@ -35,6 +36,10 @@ libcvc = shared_library('cvc',
   libcvc_sources,
   include_directories: rootInclude,
   dependencies: cvc_deps,
+  c_args: [
+    '-DG_LOG_DOMAIN="@0@"'.format('Cvc'),
+    '-DWITH_INTROSPECTION',
+  ],
   install: true,
   version: '0.0.0',
 )
