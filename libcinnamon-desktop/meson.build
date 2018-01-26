@@ -2,22 +2,23 @@ subdir('libgsystem')
 
 
 libcinnamon_desktop_gir_sources = [
-  'gnome-desktop-utils.c',
-  'gnome-desktop-thumbnail.c',
-  'gnome-thumbnail-pixbuf-utils.c',
-  'gnome-bg.c',
-  'gnome-bg-crossfade.c',
   'display-name.c',
+  'edid-parse.c',
+  'gnome-bg-crossfade.c',
+  'gnome-bg.c',
+  'gnome-desktop-thumbnail.c',
+  'gnome-desktop-utils.c',
   'gnome-installer.c',
-  'gnome-rr.c',
-  'gnome-rr-config.c',
-  'gnome-rr-output-info.c',
-  'gnome-rr-labeler.c',
   'gnome-pnp-ids.c',
+  'gnome-rr-config.c',
+  'gnome-rr-labeler.c',
+  'gnome-rr-output-info.c',
+  'gnome-rr.c',
+  'gnome-thumbnail-pixbuf-utils.c',
   'gnome-wall-clock.c',
   'gnome-xkb-info.c',
-  'edid-parse.c',
 ]
+
 libcinnamon_desktop_sources = [
   'gnome-datetime-source.h',
   'gnome-datetime-source.c',
