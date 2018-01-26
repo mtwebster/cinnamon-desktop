@@ -1,1 +1,1 @@
-option('deprecation_flags', type : 'boolean', value : false)
+option('deprecation_flags', type : 'boolean', value : true)

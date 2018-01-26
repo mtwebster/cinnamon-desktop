@@ -17,7 +17,7 @@ gsystem_lib = static_library('gsystem',
   install : false,
 )
 
-libcinnamon_desktop_gir_src = [
+libcinnamon_desktop_gir_sources = [
   'gnome-desktop-utils.c',
   'gnome-desktop-thumbnail.c',
   'gnome-thumbnail-pixbuf-utils.c',
@@ -34,15 +34,16 @@ libcinnamon_desktop_gir_src = [
   'gnome-xkb-info.c',
   'edid-parse.c',
 ]
-libcinnamon_desktop_src = [
+libcinnamon_desktop_sources = [
   'gnome-datetime-source.h',
   'gnome-datetime-source.c',
   'gnome-rr-private.h',
   'edid.h',
   'private.h',
-] + libcinnamon_desktop_gir_src
+  libcinnamon_desktop_gir_sources
+]
 
-libcinnamon_desktop_hdr = [
+libcinnamon_desktop_headers = [
   'cdesktop-enums.h',
   'gnome-bg-crossfade.h',
   'gnome-bg.h',
@@ -58,52 +59,56 @@ libcinnamon_desktop_hdr = [
 ]
 
 libcinnamon_desktop = shared_library('cinnamon-desktop',
-  libcinnamon_desktop_src,
+  libcinnamon_desktop_sources,
   include_directories : libcinnamon_desktop_inc,
   c_args : [ '-DPNP_IDS="."', '-DXKB_BASE="/usr/share/X11/xkb"' ],
-  dependencies : cinnamon_deps,
-  link_with : gsystem_lib,
-  install : true,
-  version : LT_VERSION,
+  c_args: [
+    '-DPNP_IDS="@0@"'.format(pnp_ids),
+    '-DXKB_BASE="@0@"'.format(xkb_base),
+  ],
+  dependencies: cinnamon_deps,
+  link_whole: gsystem_lib,
+  install: true,
+  version: LT_VERSION,
 )
 
 install_headers(
-  libcinnamon_desktop_hdr,
-  subdir : join_paths('cinnamon-desktop', 'libcinnamon-desktop')
+  libcinnamon_desktop_headers,
+  subdir: join_paths('cinnamon-desktop', 'libcinnamon-desktop')
 )
 
 pkgconfig.generate(
-  name : 'cinnamon-desktop',
-  description : 'Utility library for loading.desktop files',
-  version : LT_VERSION,
-  requires : ['gtk+-3.0', ],
-  requires_private : ['xkbfile', ],
-  libraries : libcinnamon_desktop,
-  subdirs : join_paths('cinnamon-desktop'),
-  variables : [ 'exec_prefix=${prefix}'],
+  name: 'cinnamon-desktop',
+  description: 'Utility library for loading.desktop files',
+  version: LT_VERSION,
+  requires: [ 'gtk+-3.0', ],
+  requires_private: [ 'xkbfile', ],
+  libraries: libcinnamon_desktop,
+  subdirs: join_paths('cinnamon-desktop'),
+  variables: [ 'exec_prefix=${prefix}'],
 )
 
 # pkgconfig.generate(
-#   name : 'cinnamon-desktop-uninstalled',
-#   description : 'Utility library for loading.desktop files',
-#   version : LT_VERSION,
-#   requires : ['gtk+-3.0', ],
-#   libraries : libcinnamon_desktop,
-#   subdirs : join_paths('cinnamon-desktop'),
-#   variables : [ 'exec_prefix=${prefix}'],
+#   name: 'cinnamon-desktop-uninstalled',
+#   description: 'Utility library for loading.desktop files',
+#   version: LT_VERSION,
+#   requires: ['gtk+-3.0', ],
+#   libraries: libcinnamon_desktop,
+#   subdirs: join_paths('cinnamon-desktop'),
+#   variables: [ 'exec_prefix=${prefix}'],
 # )
 
 
 # if USE_INTERNAL_PNP_IDS
 install_data(
   'pnp.ids',
-  install_dir : join_paths(get_option('datadir'), 'libcinnamon-desktop')
+  install_dir: join_paths(get_option('datadir'), 'libcinnamon-desktop')
 )
 # endif
 
 
 gir_c_includes = []
-foreach hdr : libcinnamon_desktop_hdr
+foreach hdr : libcinnamon_desktop_headers
   gir_c_includes += '--c-include=libcinnamon-desktop/' + hdr
 endforeach
 
@@ -117,7 +122,7 @@ gnome.generate_gir(libcinnamon_desktop,
   install: true,
 )
 gnome.generate_gir(libcinnamon_desktop,
-  sources: libcinnamon_desktop_gir_src + libcinnamon_desktop_hdr,
+  sources: libcinnamon_desktop_gir_sources + libcinnamon_desktop_headers,
   namespace: 'CinnamonDesktop',
   nsversion: '3.0',
   export_packages: 'cinnamon-desktop',
@@ -129,10 +134,10 @@ gnome.generate_gir(libcinnamon_desktop,
 )
 
 custom_target('gsettings-enums',
-  input : libcinnamon_desktop_hdr,
+  input : libcinnamon_desktop_headers,
   output: 'org.cinnamon.desktop.enums.xml',
-  capture : true,
-  command : ['glib-mkenums',
+  capture: true,
+  command: ['glib-mkenums',
     '--comments', '<!-- @comment@ -->',
     '--fhead', '<schemalist>',
     '--vhead', '  <@type@ id=\'org.cinnamon.desktop.@EnumName@\'>',
@@ -141,6 +146,6 @@ custom_target('gsettings-enums',
     '--ftail', '</schemalist>',
     '@INPUT@'
   ],
-  install : true,
-  install_dir : join_paths(get_option('datadir'), 'glib-2.0', 'schemas'),
+  install: true,
+  install_dir: join_paths(get_option('datadir'), 'glib-2.0', 'schemas'),
 )

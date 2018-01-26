@@ -1,4 +1,4 @@
-libcvc_gir_src = [
+libcvc_gir_sources = [
   'gvc-channel-map.c',
   'gvc-mixer-card.c',
   'gvc-mixer-control.c',
@@ -12,15 +12,15 @@ libcvc_gir_src = [
   'gvc-mixer-stream.c',
   'gvc-mixer-ui-device.c',
 ]
-libcvc_src = [
+libcvc_sources = [
   'gvc-channel-map-private.h',
   'gvc-mixer-card-private.h',
   'gvc-mixer-control-private.h',
   'gvc-mixer-stream-private.h',
   'gvc-pulseaudio-fake.h',
-] + libcvc_gir_src
+] + libcvc_gir_sources
 
-libcvc_hdr = [
+libcvc_headers = [
   'gvc-channel-map.h',
   'gvc-mixer-card.h',
   'gvc-mixer-control.h',
@@ -32,37 +32,45 @@ libcvc_hdr = [
 ]
 
 libcvc = shared_library('cvc',
-  libcvc_src,
-  include_directories : rootInclude,
-  dependencies : cvc_deps,
-  install : true,
-  version : '0.0.0'
-  # version : LT_VERSION,
+  libcvc_sources,
+  include_directories: rootInclude,
+  dependencies: cvc_deps,
+  install: true,
+  version: '0.0.0',
 )
 
 gnome.generate_gir(libcvc,
-  sources: libcvc_gir_src + libcvc_hdr,
+  sources: libcvc_sources + libcvc_headers,
   namespace: 'Cvc',
   nsversion: '1.0',
   identifier_prefix: 'Gvc',
   symbol_prefix: 'gvc_',
-  includes: ['GObject-2.0', 'Gio-2.0'],
+  includes: [
+    'GObject-2.0',
+    'Gio-2.0',
+  ],
   install: true,
 )
 
-libcvc_incdir = join_paths('cinnamon-desktop', 'libcvc')
 
 install_headers(
-  libcvc_hdr,
-  subdir : libcvc_incdir
+  libcvc_headers,
+  subdir: join_paths('cinnamon-desktop', 'libcvc'),
 )
 
 pkgconfig.generate(
-  name : 'cvc',
-  description : 'Utility library for volume control (based on gvc)',
-  version : '0.0',
-  requires : ['gio-2.0', 'libpulse', 'libpulse-mainloop-glib', 'gobject-2.0', ],
-  libraries : libcvc,
-  subdirs : libcvc_incdir,
-  variables : [ 'exec_prefix=${prefix}'],
+  name: 'cvc',
+  description: 'Utility library for volume control (based on gvc)',
+  version: '0.0',
+  requires: [
+    'gio-2.0',
+    'libpulse',
+    'libpulse-mainloop-glib',
+    'gobject-2.0',
+  ],
+  libraries: libcvc,
+  subdirs: join_paths('cinnamon-desktop', 'libcvc'),
+  variables: [
+    'exec_prefix=${prefix}',
+  ],
 )

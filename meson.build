@@ -1,8 +1,8 @@
 # Meson build file
 
 # https://github.com/linuxmint/cinnamon-desktop
-project('cinnamon-desktop', 'c', version : '3.5.0',
-  meson_version : '>=0.40.0'
+project('cinnamon-desktop', 'c', version: '3.5.0',
+  meson_version: '>=0.40.0'
 )
 
 # Before making a release, the LT_VERSION string should be modified.
@@ -27,10 +27,10 @@ buildtype         = get_option('buildtype')
 deprecation_flags = get_option('deprecation_flags')
 
 conf.set_quoted('PACKAGE_VERSION', meson.project_version())
-conf.set('datadir', get_option('datadir'))
+conf.set       ('datadir', get_option('datadir'))
 
-if deprecation_flags
-  add_global_arguments('-Wno-deprecated-declarations', language : 'c')
+if not deprecation_flags
+  add_global_arguments('-Wno-deprecated-declarations', language: 'c')
 endif
 
 ################################################################################
@@ -38,16 +38,16 @@ endif
 math    = cc.find_library('m')
 
 accserv = dependency('accountsservice')
-gdk_pixb= dependency('gdk-pixbuf-2.0', version : '>=2.22.0')
-gio     = dependency('gio-2.0',  version : '>=2.37.3')
-glib    = dependency('glib-2.0', version : '>=2.37.3')
-gtk     = dependency('gtk+-3.0', version : '>=3.3.16')
+gdk_pixb= dependency('gdk-pixbuf-2.0',  version: '>=2.22.0')
+gio     = dependency('gio-2.0',         version: '>=2.37.3')
+glib    = dependency('glib-2.0',        version: '>=2.37.3')
+gtk     = dependency('gtk+-3.0',        version: '>=3.3.16')
 
 x11     = dependency('x11')
-xext    = dependency('xext',     version : '>=1.1')
+xext    = dependency('xext',            version: '>=1.1')
 xkbconf = dependency('xkeyboard-config')
 xkbfile = dependency('xkbfile')
-xrandr  = dependency('xrandr',   version : '>=1.3')
+xrandr  = dependency('xrandr',          version: '>=1.3')
 
 cinnamon_deps = [
   accserv,
@@ -74,38 +74,39 @@ cvc_deps = cinnamon_deps + [
   gobject,
 ]
 
+xkb_base = xkbconf.get_pkgconfig_variable('xkb_base')
+
+pnp_ids = '.' # TODO
+
 ################################################################################
 # Translation
-# gettext_package = 'cinnamon-desktop'
 gettext_package = meson.project_name()
 
 conf.set('HAVE_GETTEXT',  true)
 conf.set('HAVE_LOCALE_H', cc.has_header('locale.h'))
 conf.set('ENABLE_NLS',    cc.has_header('libintl.h'))
 
-localedir = join_paths([ get_option('prefix'), get_option('localedir') ])
+localedir_abs = join_paths([ get_option('prefix'), get_option('localedir') ])
 conf.set_quoted('GETTEXT_PACKAGE',gettext_package)
-conf.set_quoted('GNOMELOCALEDIR', localedir)
-conf.set_quoted('LOCALE_DIR',     localedir)
-conf.set_quoted('LOCALEDIR',      localedir)
+conf.set_quoted('GNOMELOCALEDIR', localedir_abs)
+conf.set_quoted('LOCALE_DIR',     localedir_abs)
+conf.set_quoted('LOCALEDIR',      localedir_abs)
 
 ################################################################################
-# XKB_BASE=$($PKG_CONFIG --variable xkb_base xkeyboard-config)
 
 rootInclude = include_directories('.')
 
 configure_file(
   input : 'config.h.meson.in',
   output: 'config.h',
-  configuration : conf
+  configuration: conf
 )
 
-po_subdir = join_paths(meson.current_source_dir(), 'po')
 
+subdir('po')
 subdir('files')
 subdir('libcinnamon-desktop')
 subdir('libcvc')
-subdir('po')
 subdir('schemas')
 
 
