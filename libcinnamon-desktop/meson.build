@@ -20,11 +20,7 @@ libcinnamon_desktop_gir_sources = [
 ]
 
 libcinnamon_desktop_sources = [
-  'gnome-datetime-source.h',
   'gnome-datetime-source.c',
-  'gnome-rr-private.h',
-  'edid.h',
-  'private.h',
   libcinnamon_desktop_gir_sources,
 ]
 
