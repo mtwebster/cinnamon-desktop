@@ -93,7 +93,7 @@ foreach hdr : libcinnamon_desktop_headers
   gir_c_includes += '--c-include=libcinnamon-desktop/' + hdr
 endforeach
 
-gnome.generate_gir(libcinnamon_desktop,
+cdesktop_gir = gnome.generate_gir(libcinnamon_desktop,
   sources: 'cdesktop-enums.h',
   namespace: 'CDesktopEnums',
   nsversion: '3.0',
@@ -101,6 +101,7 @@ gnome.generate_gir(libcinnamon_desktop,
   symbol_prefix: 'c_desktop',
   extra_args: ['-DGNOME_DESKTOP_USE_UNSTABLE_API'] + gir_c_includes,
   install: true,
+  install_dir_typelib: join_paths(get_option('prefix'), 'lib', 'girepository-1.0'),
 )
 gnome.generate_gir(libcinnamon_desktop,
   sources: libcinnamon_desktop_gir_sources + libcinnamon_desktop_headers,
@@ -109,9 +110,10 @@ gnome.generate_gir(libcinnamon_desktop,
   export_packages: 'cinnamon-desktop',
   identifier_prefix: 'Gnome',
   symbol_prefix: 'gnome_',
-  includes: ['GObject-2.0', 'Gtk-3.0', 'CDesktopEnums-3.0'],
+  includes: ['GObject-2.0', 'Gtk-3.0', cdesktop_gir[0], ],
   extra_args: ['-DGNOME_DESKTOP_USE_UNSTABLE_API'] + gir_c_includes,
   install: true,
+  install_dir_typelib: join_paths(get_option('prefix'), 'lib', 'girepository-1.0'),
 )
 
 custom_target('gsettings-enums',
