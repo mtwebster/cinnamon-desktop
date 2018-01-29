@@ -102,9 +102,8 @@ cdesktop_gir = gnome.generate_gir(libcinnamon_desktop,
   identifier_prefix: 'CDesktop',
   symbol_prefix: 'c_desktop',
   extra_args: [
-    '-DGNOME_DESKTOP_USE_UNSTABLE_API'
-    gir_c_includes,
-  ],
+    '-DGNOME_DESKTOP_USE_UNSTABLE_API',
+  ] + gir_c_includes,
   install: true,
 )
 gnome.generate_gir(libcinnamon_desktop,
@@ -116,9 +115,8 @@ gnome.generate_gir(libcinnamon_desktop,
   symbol_prefix: 'gnome_',
   includes: ['GObject-2.0', 'Gtk-3.0', cdesktop_gir[0], ],
   extra_args: [
-    '-DGNOME_DESKTOP_USE_UNSTABLE_API'
-    gir_c_includes,
-  ],
+    '-DGNOME_DESKTOP_USE_UNSTABLE_API',
+  ] + gir_c_includes,
   install: true,
 )
 
