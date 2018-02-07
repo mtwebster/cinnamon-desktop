@@ -99,6 +99,7 @@ gettext_package = meson.project_name()
 conf.set('HAVE_GETTEXT',  true)
 conf.set('HAVE_LOCALE_H', cc.has_header('locale.h'))
 conf.set('ENABLE_NLS',    cc.has_header('libintl.h'))
+conf.set('ACCOUNTSERVICE_BG', cc.has_function('accounts_user_set_background_file', dependencies: accserv))
 
 localedir_abs = join_paths([ get_option('prefix'), get_option('localedir') ])
 conf.set_quoted('GETTEXT_PACKAGE',gettext_package)
