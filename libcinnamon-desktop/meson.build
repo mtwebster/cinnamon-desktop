@@ -46,7 +46,7 @@ libcinnamon_desktop = shared_library('cinnamon-desktop',
   include_directories: [ rootInclude, libgsystem_include, ],
   c_args: [
     '-DG_LOG_DOMAIN="@0@"'.format('CinnamonDesktop'),
-    '-DPNP_IDS="@0@"'.format(pnp_ids),
+    '-DPNP_IDS="@0@"'.format(pnp_ids_path),
     '-DXKB_BASE="@0@"'.format(xkb_base),
   ],
   dependencies: cinnamon_deps,
@@ -71,23 +71,11 @@ pkgconfig.generate(
   variables: [ 'exec_prefix=${prefix}'],
 )
 
-# pkgconfig.generate(
-#   name: 'cinnamon-desktop-uninstalled',
-#   description: 'Utility library for loading.desktop files',
-#   version: LT_VERSION,
-#   requires: ['gtk+-3.0', ],
-#   libraries: libcinnamon_desktop,
-#   subdirs: join_paths('cinnamon-desktop'),
-#   variables: [ 'exec_prefix=${prefix}'],
-# )
-
-
-# if USE_INTERNAL_PNP_IDS
-install_data(
-  'pnp.ids',
-  install_dir: join_paths(get_option('datadir'), 'libcinnamon-desktop')
-)
-# endif
+if pnp_ids_install_internal
+  install_data('pnp.ids',
+    install_dir: pnp_ids_path,
+  )
+endif
 
 
 gir_c_includes = []

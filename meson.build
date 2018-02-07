@@ -76,7 +76,21 @@ cvc_deps = cinnamon_deps + [
 
 xkb_base = xkbconf.get_pkgconfig_variable('xkb_base')
 
-pnp_ids = '.' # TODO
+
+# Path to the pnp.ids file -- to know if we use one shipped with another
+# package, or an internal file
+
+pnp_ids_path = get_option('pnp-ids-path')
+pnp_ids_install_internal = (pnp_ids_path == '')
+
+if pnp_ids_install_internal
+  # Default value
+  pnp_ids_path = join_paths(get_option('datadir'), 'libcinnamon-desktop')
+  pnp_ids_abspath = join_paths(get_option('prefix'), pnp_ids_path)
+else
+  pnp_ids_abspath = pnp_ids_path
+endif
+
 
 ################################################################################
 # Translation
@@ -110,16 +124,26 @@ subdir('libcvc')
 subdir('schemas')
 
 
-message('         prefix:                       ' + get_option('prefix'))
-message('         exec_prefix:                  ' + get_option('prefix'))
-message('         libdir:                       ' + get_option('libdir'))
-message('         bindir:                       ' + get_option('bindir'))
-message('         sbindir:                      ' + get_option('sbindir'))
-message('         sysconfdir:                   ' + get_option('sysconfdir'))
-message('         localstatedir:                ' + get_option('localstatedir'))
-message('         datadir:                      ' + get_option('datadir'))
-message('         source code location:         ' + meson.source_root())
-message('         compiler:                     ' + cc.get_id())
-message('         debugging support:            ' + buildtype)
-# message('         cflags:                       ' + get_option('CFLAGS'))
-message('         Use *_DISABLE_DEPRECATED:     ' + (deprecation_flags ? 'no' : 'yes'))
+pnp_message = '@0@: @1@'.format(
+  ''+(pnp_ids_install_internal ? 'internal' : 'system'),
+  pnp_ids_abspath
+)
+
+
+message('\n'.join([
+  '',
+  '        prefix:                       ' + get_option('prefix'),
+  '        exec_prefix:                  ' + get_option('prefix'),
+  '        libdir:                       ' + get_option('libdir'),
+  '        bindir:                       ' + get_option('bindir'),
+  '        sbindir:                      ' + get_option('sbindir'),
+  '        sysconfdir:                   ' + get_option('sysconfdir'),
+  '        localstatedir:                ' + get_option('localstatedir'),
+  '        datadir:                      ' + get_option('datadir'),
+  '        source code location:         ' + meson.source_root(),
+  '        compiler:                     ' + cc.get_id(),
+  '        debugging support:            ' + buildtype,
+  '        Use *_DISABLE_DEPRECATED:     ' + (deprecation_flags ? 'no' : 'yes'),
+  '        Use PNP files:                ' + pnp_message,
+  '',
+]))
