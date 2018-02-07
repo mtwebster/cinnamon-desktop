@@ -1,10 +1,7 @@
 #!/usr/bin/make -f
 
-export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
-DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
-
 %:
-	dh $@ --parallel --with=gir,gnome,python2
+	dh $@ --parallel --with=gir
 
 override_dh_gnome_clean:
 override_dh_auto_clean:
@@ -15,7 +12,6 @@ override_dh_auto_configure:
 	meson debian/build \
 		--prefix=/usr \
 		--buildtype=plain \
-		--strip \
 		-Dpnp-ids-path=/usr/share/hwdata/pnp.ids \
 		-Ddeprecation_flags=true
 
@@ -24,6 +20,10 @@ override_dh_auto_build:
 
 override_dh_auto_test:
 	ninja -C debian/build test
+
+override_dh_strip:
+	dh_strip -Xdesktop -Xcinnamon --dbg-package=libcvc-dbg
+	dh_strip -Xcvc --dbg-package=libcinnamon-desktop-dbg
 
 override_dh_auto_install:
 	DESTDIR=${CURDIR}/debian/tmp \

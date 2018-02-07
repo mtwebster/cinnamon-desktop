@@ -116,7 +116,7 @@ configure_file(
   configuration: conf
 )
 
-
+subdir('install-scripts')
 subdir('po')
 subdir('files')
 subdir('libcinnamon-desktop')
