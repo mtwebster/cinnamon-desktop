@@ -104,8 +104,10 @@ gnome.generate_gir(libcinnamon_desktop,
   install: true,
 )
 
+# FIXME
+# https://github.com/mesonbuild/meson/issues/1687
 custom_target('gsettings-enums',
-  input : libcinnamon_desktop_headers,
+  input : libcinnamon_desktop_headers + cdesktop_headers,
   output: 'org.cinnamon.desktop.enums.xml',
   capture: true,
   command: ['glib-mkenums',
