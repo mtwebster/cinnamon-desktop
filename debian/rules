@@ -3,10 +3,6 @@
 %:
 	dh $@ --parallel --with=gir
 
-override_dh_gnome_clean:
-override_dh_auto_clean:
-	rm -rf debian/build
-
 override_dh_auto_configure:
 	mkdir -p debian/build
 	meson debian/build \

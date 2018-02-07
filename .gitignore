@@ -1,1 +1,7 @@
 build
+
+debian/tmp
+debian/*/
+debian/*.log
+debian/*.substvars
+debian/files
