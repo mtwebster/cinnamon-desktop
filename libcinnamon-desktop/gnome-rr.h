@@ -144,7 +144,11 @@ gboolean        gnome_rr_screen_get_dpms_mode      (GnomeRRScreen        *screen
 gboolean        gnome_rr_screen_set_dpms_mode      (GnomeRRScreen         *screen,
                                                     GnomeRRDpmsMode        mode,
                                                     GError              **error);
-
+int             gnome_rr_screen_get_current_window_scale (GnomeRRScreen   *screen);
+float *         gnome_rr_screen_calculate_supported_scales (GnomeRRScreen     *screen,
+                                                            int                width,
+                                                            int                height,
+                                                            int               *n_supported_scales);
 /* GnomeRROutput */
 guint32         gnome_rr_output_get_id             (GnomeRROutput         *output);
 const char *    gnome_rr_output_get_name           (GnomeRROutput         *output);
@@ -201,6 +205,8 @@ gboolean        gnome_rr_crtc_set_config_with_time (GnomeRRCrtc           *crtc,
 						    GnomeRRRotation        rotation,
 						    GnomeRROutput        **outputs,
 						    int                    n_outputs,
+                            float                  scale,
+                            gint                   global_scale,
 						    GError               **error);
 gboolean        gnome_rr_crtc_can_drive_output     (GnomeRRCrtc           *crtc,
 						    GnomeRROutput         *output);
@@ -208,6 +214,7 @@ GnomeRRMode *   gnome_rr_crtc_get_current_mode     (GnomeRRCrtc           *crtc)
 void            gnome_rr_crtc_get_position         (GnomeRRCrtc           *crtc,
 						    int                   *x,
 						    int                   *y);
+float           gnome_rr_crtc_get_scale            (GnomeRRCrtc           *crtc);
 GnomeRRRotation gnome_rr_crtc_get_current_rotation (GnomeRRCrtc           *crtc);
 GnomeRRRotation gnome_rr_crtc_get_rotations        (GnomeRRCrtc           *crtc);
 gboolean        gnome_rr_crtc_supports_rotation    (GnomeRRCrtc           *crtc,

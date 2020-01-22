@@ -68,7 +68,7 @@ gnome_rr_output_info_class_init (GnomeRROutputInfoClass *klass)
  *
  * Returns: (transfer none): the output name
  */
-char *gnome_rr_output_info_get_name (GnomeRROutputInfo *self)
+const char *gnome_rr_output_info_get_name (GnomeRROutputInfo *self)
 {
     g_return_val_if_fail (GNOME_IS_RR_OUTPUT_INFO (self), NULL);
 
@@ -124,6 +124,20 @@ void gnome_rr_output_info_set_geometry (GnomeRROutputInfo *self, int  x, int  y,
     self->priv->y = y;
     self->priv->width = width;
     self->priv->height = height;
+}
+
+float gnome_rr_output_info_get_scale (GnomeRROutputInfo *self)
+{
+    g_return_val_if_fail (GNOME_IS_RR_OUTPUT_INFO (self), MINIMUM_LOGICAL_SCALE_FACTOR);
+
+    return self->priv->scale;
+}
+
+void gnome_rr_output_info_set_scale (GnomeRROutputInfo *self, float scale)
+{
+    g_return_if_fail (GNOME_IS_RR_OUTPUT_INFO (self));
+
+    self->priv->scale = scale;
 }
 
 int gnome_rr_output_info_get_refresh_rate (GnomeRROutputInfo *self)
