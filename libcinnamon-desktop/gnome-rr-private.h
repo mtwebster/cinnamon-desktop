@@ -65,6 +65,7 @@ struct GnomeRROutputInfoPrivate
     int			pref_height;
     char *		display_name;
     gboolean            primary;
+    float       scale;
 };
 
 struct GnomeRRConfigPrivate

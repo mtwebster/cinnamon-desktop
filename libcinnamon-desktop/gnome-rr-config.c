@@ -30,6 +30,7 @@
 #include <glib/gi18n-lib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 
@@ -321,6 +322,12 @@ handle_text (GMarkupParseContext *context,
 
 	parser->output->priv->y = parse_int (text);
     }
+    else if (stack_is (parser, "scale", "output", "configuration", TOPLEVEL_ELEMENT, NULL))
+    {
+    parser->output->priv->on = TRUE;
+
+    parser->output->priv->scale = parse_double (text);
+    }
     else if (stack_is (parser, "height", "output", "configuration", TOPLEVEL_ELEMENT, NULL))
     {
 	parser->output->priv->on = TRUE;
@@ -536,7 +543,8 @@ gnome_rr_config_load_current (GnomeRRConfig *config, GError **error)
 	    output->priv->y = -1;
 	    output->priv->width = -1;
 	    output->priv->height = -1;
-	    output->priv->rate = -1;
+	    output->priv->rate = -1.0f;
+        output->priv->scale = 1.0f;
 	    output->priv->rotation = GNOME_RR_ROTATION_0;
 	}
 	else
@@ -581,6 +589,8 @@ gnome_rr_config_load_current (GnomeRRConfig *config, GError **error)
 		output->priv->height = gnome_rr_mode_get_height (mode);
 		output->priv->rate = gnome_rr_mode_get_freq_f (mode);
 		output->priv->rotation = gnome_rr_crtc_get_current_rotation (crtc);
+        g_printerr ("CRTC=%f\n", gnome_rr_crtc_get_scale (crtc));
+        output->priv->scale = gnome_rr_crtc_get_scale (crtc);
 
 		if (output->priv->x == 0 && output->priv->y == 0) {
 			if (clone_width == -1) {
@@ -872,6 +882,9 @@ output_equal (GnomeRROutputInfo *output1, GnomeRROutputInfo *output2)
 	
 	if (output1->priv->rotation != output2->priv->rotation)
 	    return FALSE;
+
+    if (output1->priv->scale != output2->priv->scale)
+        return FALSE;
     }
 
     return TRUE;
@@ -973,6 +986,8 @@ make_outputs (GnomeRRConfig *config)
 	    new->priv->rotation = first_on->priv->rotation;
 	    new->priv->x = 0;
 	    new->priv->y = 0;
+        new->priv->scale = 1.0f;
+        new->priv->rate = 60.0f;
 	}
 
 	g_ptr_array_add (outputs, new);
@@ -1113,6 +1128,8 @@ emit_configuration (GnomeRRConfig *config,
 	    g_string_append_printf (
 		string, "          <y>%d</y>\n", output->priv->y);
 	    g_string_append_printf (
+        string, "          <scale>%f</scale>\n", output->priv->scale);
+        g_string_append_printf (
 		string, "          <rotation>%s</rotation>\n", get_rotation_name (output->priv->rotation));
 	    g_string_append_printf (
 		string, "          <reflect_x>%s</reflect_x>\n", get_reflect_x (output->priv->rotation));
@@ -1253,6 +1270,7 @@ gnome_rr_config_save (GnomeRRConfig *configuration, GError **error)
     output = g_string_new ("");
 
     backup_filename = gnome_rr_config_get_backup_filename ();
+    // intended_filename = g_strdup ("/home/mtwebster/.config/monitors.testing");
     intended_filename = gnome_rr_config_get_intended_filename ();
 
     configurations = configurations_read_from_file (intended_filename, NULL); /* NULL-GError */
@@ -1430,6 +1448,7 @@ struct CrtcInfo
     GnomeRRMode    *mode;
     int        x;
     int        y;
+    float      scale;
     GnomeRRRotation rotation;
     GPtrArray *outputs;
 };
@@ -1465,102 +1484,108 @@ crtc_assignment_assign (CrtcAssignment   *assign,
 			int               x,
 			int               y,
 			GnomeRRRotation   rotation,
-                        gboolean          primary,
+            gboolean          primary,
+            float             scale,
 			GnomeRROutput    *output,
 			GError          **error)
 {
     CrtcInfo *info = g_hash_table_lookup (assign->info, crtc);
     guint32 crtc_id;
     const char *output_name;
-
     crtc_id = gnome_rr_crtc_get_id (crtc);
     output_name = gnome_rr_output_get_name (output);
 
     if (!gnome_rr_crtc_can_drive_output (crtc, output))
     {
-	g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_CRTC_ASSIGNMENT,
-		     _("CRTC %d cannot drive output %s"), crtc_id, output_name);
-	return FALSE;
+        g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_CRTC_ASSIGNMENT,
+                     _("CRTC %d cannot drive output %s"), crtc_id, output_name);
+        return FALSE;
     }
 
     if (!gnome_rr_output_supports_mode (output, mode))
     {
-	g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_CRTC_ASSIGNMENT,
-		     _("output %s does not support mode %dx%d@%dHz"),
-		     output_name,
-		     gnome_rr_mode_get_width (mode),
-		     gnome_rr_mode_get_height (mode),
-		     gnome_rr_mode_get_freq (mode));
-	return FALSE;
+        g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_CRTC_ASSIGNMENT,
+                     _("output %s does not support mode %dx%d@%dHz"),
+                     output_name,
+                     gnome_rr_mode_get_width (mode),
+                     gnome_rr_mode_get_height (mode),
+                     gnome_rr_mode_get_freq (mode));
+        return FALSE;
     }
 
     if (!gnome_rr_crtc_supports_rotation (crtc, rotation))
     {
-	g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_CRTC_ASSIGNMENT,
-		     _("CRTC %d does not support rotation=%s"),
-		     crtc_id,
-		     get_rotation_name (rotation));
-	return FALSE;
+        g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_CRTC_ASSIGNMENT,
+                     _("CRTC %d does not support rotation=%s"),
+                     crtc_id,
+                     get_rotation_name (rotation));
+        return FALSE;
     }
 
     if (info)
     {
-	if (!(info->mode == mode	&&
-	      info->x == x		&&
-	      info->y == y		&&
-	      info->rotation == rotation))
-	{
-	    g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_CRTC_ASSIGNMENT,
-			 _("output %s does not have the same parameters as another cloned output:\n"
-			   "existing mode = %d, new mode = %d\n"
-			   "existing coordinates = (%d, %d), new coordinates = (%d, %d)\n"
-			   "existing rotation = %s, new rotation = %s"),
-			 output_name,
-			 gnome_rr_mode_get_id (info->mode), gnome_rr_mode_get_id (mode),
-			 info->x, info->y,
-			 x, y,
-			 get_rotation_name (info->rotation), get_rotation_name (rotation));
-	    return FALSE;
-	}
+        if (!(info->mode == mode	&&
+              info->x == x		&&
+              info->y == y		&&
+              info->scale == scale &&
+              info->rotation == rotation))
+        {
+            g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_CRTC_ASSIGNMENT,
+                         _("output %s does not have the same parameters as another cloned output:\n"
+                         "existing mode = %d, new mode = %d\n"
+                         "existing coordinates = (%d, %d), new coordinates = (%d, %d)\n"
+                         "existing rotation = %s, new rotation = %s"
+                         "existing scale = %.2f, new scale = %.2f"),
+                         output_name,
+                         gnome_rr_mode_get_id (info->mode), gnome_rr_mode_get_id (mode),
+                         info->x, info->y,
+                         x, y,
+                         get_rotation_name (info->rotation), get_rotation_name (rotation),
+                         info->scale, scale);
+            return FALSE;
+        }
 
-	if (!can_clone (info, output))
-	{
-	    g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_CRTC_ASSIGNMENT,
-			 _("cannot clone to output %s"),
-			 output_name);
-	    return FALSE;
-	}
+        if (!can_clone (info, output))
+        {
+            g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_CRTC_ASSIGNMENT,
+                         _("cannot clone to output %s"),
+                         output_name);
+            return FALSE;
+        }
 
-	g_ptr_array_add (info->outputs, output);
+        g_ptr_array_add (info->outputs, output);
 
-	if (primary && !assign->primary)
-	{
-	    assign->primary = output;
-	}
-
-	return TRUE;
-    }
-    else
-    {	
-	CrtcInfo *info = g_new0 (CrtcInfo, 1);
-	
-	info->mode = mode;
-	info->x = x;
-	info->y = y;
-	info->rotation = rotation;
-	info->outputs = g_ptr_array_new ();
-	
-	g_ptr_array_add (info->outputs, output);
-	
-	g_hash_table_insert (assign->info, crtc, info);
-	    
         if (primary && !assign->primary)
         {
             assign->primary = output;
         }
 
-	return TRUE;
+        return TRUE;
     }
+    else
+    {
+        CrtcInfo *info = g_new0 (CrtcInfo, 1);
+
+        info->mode = mode;
+        info->x = x;
+        info->y = y;
+        info->rotation = rotation;
+        info->scale = scale;
+        info->outputs = g_ptr_array_new ();
+
+        g_ptr_array_add (info->outputs, output);
+
+        g_hash_table_insert (assign->info, crtc, info);
+
+        if (primary && !assign->primary)
+        {
+            assign->primary = output;
+        }
+
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 static void
@@ -1596,7 +1621,21 @@ typedef struct {
     guint32 timestamp;
     gboolean has_error;
     GError **error;
+    gint global_scale;
 } ConfigureCrtcState;
+
+static void
+get_max_info_scale (gpointer key,
+                    gpointer value,
+                    float   *max)
+{
+    CrtcInfo *info = value;
+
+    if (info->scale > *max)
+    {
+        *max = info->scale;
+    }
+}
 
 static void
 configure_crtc (gpointer key,
@@ -1617,6 +1656,8 @@ configure_crtc (gpointer key,
 					     info->rotation,
 					     (GnomeRROutput **)info->outputs->pdata,
 					     info->outputs->len,
+                         info->scale,
+                         state->global_scale,
 					     state->error))
 	state->has_error = TRUE;
 }
@@ -1675,13 +1716,14 @@ real_assign_crtcs (GnomeRRScreen *screen,
     gboolean success;
 
     output = *outputs;
+
     if (!output)
-	return TRUE;
+        return TRUE;
 
     /* It is always allowed for an output to be turned off */
     if (!output->priv->on)
     {
-	return real_assign_crtcs (screen, outputs + 1, assignment, error);
+        return real_assign_crtcs (screen, outputs + 1, assignment, error);
     }
 
     success = FALSE;
@@ -1690,69 +1732,72 @@ real_assign_crtcs (GnomeRRScreen *screen,
 
     for (i = 0; crtcs[i] != NULL; ++i)
     {
-	GnomeRRCrtc *crtc = crtcs[i];
-	int crtc_id = gnome_rr_crtc_get_id (crtc);
-	int pass;
+        GnomeRRCrtc *crtc = crtcs[i];
+        int crtc_id = gnome_rr_crtc_get_id (crtc);
+        int pass;
 
-	g_string_append_printf (accumulated_error,
-				_("Trying modes for CRTC %d\n"),
-				crtc_id);
+        g_string_append_printf (accumulated_error,
+                                _("Trying modes for CRTC %d\n"),
+                                crtc_id);
 
-	/* Make two passes, one where frequencies must match, then
-	 * one where they don't have to
-	 */
-	for (pass = 0; pass < 2; ++pass)
-	{
-	    GnomeRROutput *gnome_rr_output = gnome_rr_screen_get_output_by_name (screen, output->priv->name);
-	    GnomeRRMode **modes = gnome_rr_output_list_modes (gnome_rr_output);
-	    int j;
+        /* Make two passes, one where frequencies must match, then
+         * one where they don't have to
+         */
+        for (pass = 0; pass < 2; ++pass)
+        {
+            GnomeRROutput *gnome_rr_output = gnome_rr_screen_get_output_by_name (screen, output->priv->name);
+            GnomeRRMode **modes = gnome_rr_output_list_modes (gnome_rr_output);
+            int j;
 
-	    for (j = 0; modes[j] != NULL; ++j)
-	    {
-		GnomeRRMode *mode = modes[j];
-		int mode_width;
-		int mode_height;
-		int mode_freq;
+            for (j = 0; modes[j] != NULL; ++j)
+            {
+                GnomeRRMode *mode = modes[j];
+                int mode_width;
+                int mode_height;
+                double mode_freq;
 
-		mode_width = gnome_rr_mode_get_width (mode);
-		mode_height = gnome_rr_mode_get_height (mode);
-		mode_freq = gnome_rr_mode_get_freq (mode);
+                mode_width = gnome_rr_mode_get_width (mode);
+                mode_height = gnome_rr_mode_get_height (mode);
+                mode_freq = gnome_rr_mode_get_freq_f (mode);
 
-		g_string_append_printf (accumulated_error,
-					_("CRTC %d: trying mode %dx%d@%dHz with output at %dx%d@%.2fHz (pass %d)\n"),
+                g_string_append_printf (accumulated_error,
+					_("CRTC %d: trying mode %dx%d@%.2fHz with output at %dx%d@%.2fHz (pass %d)\n"),
 					crtc_id,
 					mode_width, mode_height, mode_freq,
 					output->priv->width, output->priv->height, output->priv->rate,
 					pass);
 
-		if (mode_width == output->priv->width	&&
-		    mode_height == output->priv->height &&
-		    (pass == 1 || mode_freq == output->priv->rate))
-		{
-		    tried_mode = TRUE;
+                if (mode_width == output->priv->width	&&
+                    mode_height == output->priv->height &&
+                    (pass == 1 || mode_freq == output->priv->rate))
+                {
+                    tried_mode = TRUE;
 
-		    my_error = NULL;
-		    if (crtc_assignment_assign (
-			    assignment, crtc, modes[j],
-			    output->priv->x, output->priv->y,
-			    output->priv->rotation,
-                            output->priv->primary,
-			    gnome_rr_output,
-			    &my_error))
-		    {
-			my_error = NULL;
-			if (real_assign_crtcs (screen, outputs + 1, assignment, &my_error)) {
-			    success = TRUE;
-			    goto out;
-			} else
-			    accumulate_error (accumulated_error, my_error);
+                    my_error = NULL;
 
-			crtc_assignment_unassign (assignment, crtc, gnome_rr_output);
-		    } else
-			accumulate_error (accumulated_error, my_error);
-		}
-	    }
-	}
+                    if (crtc_assignment_assign (
+                        assignment, crtc, modes[j],
+                        output->priv->x, output->priv->y,
+                        output->priv->rotation,
+                        output->priv->primary,
+                        output->priv->scale,
+                        gnome_rr_output,
+                        &my_error))
+                    {
+                        my_error = NULL;
+                        
+                        if (real_assign_crtcs (screen, outputs + 1, assignment, &my_error)) {
+                            success = TRUE;
+                            goto out;
+                        } else
+                            accumulate_error (accumulated_error, my_error);
+
+                        crtc_assignment_unassign (assignment, crtc, gnome_rr_output);
+                    } else
+                        accumulate_error (accumulated_error, my_error);
+                }
+            }
+        }
     }
 
 out:
@@ -1787,39 +1832,53 @@ crtc_info_free (CrtcInfo *info)
 }
 
 static void
-get_required_virtual_size (CrtcAssignment *assign, int *width, int *height)
+get_required_virtual_size (CrtcAssignment *assign, int *width, int *height, float *avg_scale, float *max_scale)
 {
     GList *active_crtcs = g_hash_table_get_keys (assign->info);
     GList *list;
-    int d;
+    int d, crtc_count;
+    float df;
+    float avg_screen_scale;
+
+    g_hash_table_foreach (assign->info, get_max_info_scale, max_scale);
 
     if (!width)
-	width = &d;
+        width = &d;
     if (!height)
-	height = &d;
+        height = &d;
+    if (!avg_scale)
+        avg_scale = &df;
     
     /* Compute size of the screen */
     *width = *height = 1;
+    avg_screen_scale = 0;
+    crtc_count = 0;
     for (list = active_crtcs; list != NULL; list = list->next)
     {
-	GnomeRRCrtc *crtc = list->data;
-	CrtcInfo *info = g_hash_table_lookup (assign->info, crtc);
-	int w, h;
+        GnomeRRCrtc *crtc = list->data;
+        CrtcInfo *info = g_hash_table_lookup (assign->info, crtc);
+        int w, h;
+        float scale = 1.0f;
 
-	w = gnome_rr_mode_get_width (info->mode);
-	h = gnome_rr_mode_get_height (info->mode);
-	
-	if (mode_is_rotated (info))
-	{
-	    int tmp = h;
-	    h = w;
-	    w = tmp;
-	}
-	
-	*width = MAX (*width, info->x + w);
-	*height = MAX (*height, info->y + h);
+        scale = ceilf (*max_scale) / info->scale;
+
+        w = gnome_rr_mode_get_width (info->mode);
+        h = gnome_rr_mode_get_height (info->mode);
+
+        if (mode_is_rotated (info))
+        {
+            int tmp = h;
+            h = w;
+            w = tmp;
+        }
+
+        *width = MAX (*width, info->x + roundf (w * scale));
+        *height = MAX (*height, info->y + roundf (h * scale));
+
+        avg_screen_scale += (info->scale - avg_screen_scale) / (float) (++crtc_count);
     }
 
+    *avg_scale = avg_screen_scale;
     g_list_free (active_crtcs);
 }
 
@@ -1835,8 +1894,9 @@ crtc_assignment_new (GnomeRRScreen *screen, GnomeRROutputInfo **outputs, GError 
     {
 	int width, height;
 	int min_width, max_width, min_height, max_height;
+    float scale, max_scale;
 
-	get_required_virtual_size (assignment, &width, &height);
+	get_required_virtual_size (assignment, &width, &height, &scale, &max_scale);
 
 	gnome_rr_screen_get_ranges (
 	    screen, &min_width, &max_width, &min_height, &max_height);
@@ -1867,6 +1927,43 @@ fail:
     return NULL;
 }
 
+static void
+set_global_scale (gint scale)
+{
+    GSettings *settings;
+
+    settings = g_settings_new ("org.cinnamon.desktop.interface");
+
+    g_settings_set_uint (settings, "scaling-factor", scale);
+
+    g_object_unref (settings);
+}
+
+static void
+maybe_set_window_scale (GnomeRRScreen *screen,
+                        gboolean       before,
+                        gfloat         max_scale)
+{
+    gint current_window_scale;
+
+    current_window_scale = gnome_rr_screen_get_current_window_scale (screen);
+
+    // if (before)
+    // {
+        // if (max_scale < current_window_scale)
+        // {
+            set_global_scale (max_scale);
+        // }
+    // }
+    // // else
+    // {
+    //     if (max_scale > current_window_scale)
+    //     {
+    //         set_global_scale (max_scale);
+    //     }
+    // }
+}
+
 static gboolean
 crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error)
 {
@@ -1875,10 +1972,12 @@ crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error
     int i;
     int min_width, max_width, min_height, max_height;
     int width_mm, height_mm;
+    int global_scale;
+    float average_scale, max_scale;
     gboolean success = TRUE;
 
     /* Compute size of the screen */
-    get_required_virtual_size (assign, &width, &height);
+    get_required_virtual_size (assign, &width, &height, &average_scale, &max_scale);
 
     gnome_rr_screen_get_ranges (
 	assign->screen, &min_width, &max_width, &min_height, &max_height);
@@ -1926,7 +2025,16 @@ crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error
 	    
 	    if (x + w > width || y + h > height || !g_hash_table_lookup (assign->info, crtc))
 	    {
-		if (!gnome_rr_crtc_set_config_with_time (crtc, timestamp, 0, 0, NULL, GNOME_RR_ROTATION_0, NULL, 0, error))
+		if (!gnome_rr_crtc_set_config_with_time (crtc,
+                                                 timestamp,
+                                                 0, 0,
+                                                 NULL,
+                                                 GNOME_RR_ROTATION_0,
+                                                 NULL,
+                                                 0,
+                                                 1.0f,
+                                                 max_scale,
+                                                 error))
 		{
 		    success = FALSE;
 		    break;
@@ -1942,8 +2050,8 @@ crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error
      *
      * Firefox and Evince apparently believe what X tells them.
      */
-    width_mm = (width / DPI_FALLBACK) * 25.4 + 0.5;
-    height_mm = (height / DPI_FALLBACK) * 25.4 + 0.5;
+    width_mm = (width / (DPI_FALLBACK / average_scale)) * 25.4 + 0.5;
+    height_mm = (height / (DPI_FALLBACK / average_scale)) * 25.4 + 0.5;
 
     if (success)
     {
@@ -1954,8 +2062,11 @@ crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error
 	state.timestamp = timestamp;
 	state.has_error = FALSE;
 	state.error = error;
-	
+	state.global_scale = max_scale;
+g_printerr ("MAX SCALE %f\n", max_scale);
+    // maybe_set_window_scale (assign->screen, TRUE, max_scale);
 	g_hash_table_foreach (assign->info, configure_crtc, &state);
+    maybe_set_window_scale (assign->screen, FALSE, max_scale);
 
 	success = !state.has_error;
     }

@@ -59,13 +59,16 @@ typedef struct
 
 GType gnome_rr_output_info_get_type (void);
 
-char *gnome_rr_output_info_get_name (GnomeRROutputInfo *self);
+const char *gnome_rr_output_info_get_name (GnomeRROutputInfo *self);
 
 gboolean gnome_rr_output_info_is_active  (GnomeRROutputInfo *self);
 void     gnome_rr_output_info_set_active (GnomeRROutputInfo *self, gboolean active);
 
 void gnome_rr_output_info_get_geometry (GnomeRROutputInfo *self, int *x, int *y, int *width, int *height);
 void gnome_rr_output_info_set_geometry (GnomeRROutputInfo *self, int  x, int  y, int  width, int  height);
+
+float gnome_rr_output_info_get_scale (GnomeRROutputInfo *self);
+void gnome_rr_output_info_set_scale (GnomeRROutputInfo *self, float scale);
 
 int gnome_rr_output_info_get_refresh_rate (GnomeRROutputInfo *self);
 void gnome_rr_output_info_set_refresh_rate (GnomeRROutputInfo *self, int rate);
