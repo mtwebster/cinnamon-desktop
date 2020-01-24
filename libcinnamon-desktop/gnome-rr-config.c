@@ -1631,6 +1631,9 @@ get_max_info_scale (gpointer key,
 {
     CrtcInfo *info = value;
 
+    if (info->scale == 0)
+        return;
+
     if (info->scale > *max)
     {
         *max = info->scale;
@@ -1942,26 +1945,9 @@ set_global_scale (gint scale)
 static void
 maybe_set_window_scale (GnomeRRScreen *screen,
                         gboolean       before,
-                        gfloat         max_scale)
+                        gint           max_scale)
 {
-    gint current_window_scale;
-
-    current_window_scale = gnome_rr_screen_get_current_window_scale (screen);
-
-    // if (before)
-    // {
-        // if (max_scale < current_window_scale)
-        // {
-            set_global_scale (max_scale);
-        // }
-    // }
-    // // else
-    // {
-    //     if (max_scale > current_window_scale)
-    //     {
-    //         set_global_scale (max_scale);
-    //     }
-    // }
+    set_global_scale (max_scale);
 }
 
 static gboolean
@@ -2033,7 +2019,7 @@ crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error
                                                  NULL,
                                                  0,
                                                  1.0f,
-                                                 max_scale,
+                                                 1,
                                                  error))
 		{
 		    success = FALSE;
@@ -2062,11 +2048,11 @@ crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error
 	state.timestamp = timestamp;
 	state.has_error = FALSE;
 	state.error = error;
-	state.global_scale = max_scale;
+	state.global_scale = ceilf (max_scale);
 g_printerr ("MAX SCALE %f\n", max_scale);
     // maybe_set_window_scale (assign->screen, TRUE, max_scale);
 	g_hash_table_foreach (assign->info, configure_crtc, &state);
-    maybe_set_window_scale (assign->screen, FALSE, max_scale);
+    maybe_set_window_scale (assign->screen, FALSE, state.global_scale);
 
 	success = !state.has_error;
     }

@@ -2143,15 +2143,18 @@ xrotation_from_rotation (GnomeRRRotation r)
 }
 
 static void
-set_crtc_scale (GnomeRRCrtc *crtc, float scale, gint global_scale)
+set_crtc_scale (GnomeRRCrtc *crtc, GnomeRRMode *mode, float scale, gint global_scale)
 {
     gchar *filter;
     gfloat real_scale;
 
-    if (global_scale > 1) {
-        real_scale = global_scale / scale;
-    } else {
-        real_scale = global_scale * scale;
+    if (mode != NULL)
+    {
+        real_scale = 1 / ((mode->width * scale) / (mode->width * global_scale));
+    }
+    else
+    {
+        real_scale = 1.0f;
     }
 
     XTransform transform =  {{
@@ -2166,7 +2169,7 @@ set_crtc_scale (GnomeRRCrtc *crtc, float scale, gint global_scale)
         g_printerr ("%d          %d          %d\n", transform.matrix[i][0], transform.matrix[i][1], transform.matrix[i][2]);
     }
 
-    if ((2/scale) != 1.0f)
+    if ((real_scale) != 1.0f)
     {
         filter = g_strdup ("bilinear");
     }
@@ -2235,7 +2238,7 @@ gnome_rr_crtc_set_config_with_time (GnomeRRCrtc      *crtc,
 
     gdk_error_trap_push ();
 
-    set_crtc_scale (crtc, scale, global_scale);
+    set_crtc_scale (crtc, mode, scale, global_scale);
 
     status = XRRSetCrtcConfig (DISPLAY (crtc), info->resources, crtc->id,
 			       timestamp, 
@@ -2439,7 +2442,7 @@ gnome_rr_screen_get_current_window_scale (GnomeRRScreen *screen)
         window_scale = g_value_get_int (&value);
     }
 
-    return window_scale;
+    return MAX (1, window_scale);
 }
 
 static float
