@@ -128,7 +128,7 @@ void gnome_rr_output_info_set_geometry (GnomeRROutputInfo *self, int  x, int  y,
 
 float gnome_rr_output_info_get_scale (GnomeRROutputInfo *self)
 {
-    g_return_val_if_fail (GNOME_IS_RR_OUTPUT_INFO (self), 1.0f);
+    g_return_val_if_fail (GNOME_IS_RR_OUTPUT_INFO (self), MINIMUM_LOGICAL_SCALE_FACTOR);
 
     return self->priv->scale;
 }

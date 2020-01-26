@@ -544,7 +544,7 @@ gnome_rr_config_load_current (GnomeRRConfig *config, GError **error)
 	    output->priv->width = -1;
 	    output->priv->height = -1;
 	    output->priv->rate = -1.0f;
-        output->priv->scale = 1.0f;
+        output->priv->scale = MINIMUM_LOGICAL_SCALE_FACTOR;
 	    output->priv->rotation = GNOME_RR_ROTATION_0;
 	}
 	else
@@ -589,7 +589,7 @@ gnome_rr_config_load_current (GnomeRRConfig *config, GError **error)
 		output->priv->height = gnome_rr_mode_get_height (mode);
 		output->priv->rate = gnome_rr_mode_get_freq_f (mode);
 		output->priv->rotation = gnome_rr_crtc_get_current_rotation (crtc);
-        g_printerr ("CRTC=%f\n", gnome_rr_crtc_get_scale (crtc));
+
         output->priv->scale = gnome_rr_crtc_get_scale (crtc);
 
 		if (output->priv->x == 0 && output->priv->y == 0) {
@@ -986,7 +986,7 @@ make_outputs (GnomeRRConfig *config)
 	    new->priv->rotation = first_on->priv->rotation;
 	    new->priv->x = 0;
 	    new->priv->y = 0;
-        new->priv->scale = 1.0f;
+        new->priv->scale = MINIMUM_LOGICAL_SCALE_FACTOR;
         new->priv->rate = 60.0f;
 	}
 
@@ -1624,20 +1624,27 @@ typedef struct {
     gint global_scale;
 } ConfigureCrtcState;
 
-static void
-get_max_info_scale (gpointer key,
-                    gpointer value,
-                    float   *max)
+static float
+get_max_info_scale (CrtcAssignment *assignment)
 {
-    CrtcInfo *info = value;
+    GList *infos, *iter;
+    float max_scale = MINIMUM_LOGICAL_SCALE_FACTOR;
 
-    if (info->scale == 0)
-        return;
+    infos = g_hash_table_get_values (assignment->info);
 
-    if (info->scale > *max)
+    for (iter = infos; iter != NULL; iter = iter->next)
     {
-        *max = info->scale;
+        CrtcInfo *info = iter->data;
+
+        if (info->scale > max_scale)
+        {
+            max_scale = info->scale;
+        }
     }
+
+    g_list_free (infos);
+
+    return max_scale;
 }
 
 static void
@@ -1843,15 +1850,8 @@ get_required_virtual_size (CrtcAssignment *assign, int *width, int *height, floa
     float df;
     float avg_screen_scale;
 
-    g_hash_table_foreach (assign->info, get_max_info_scale, max_scale);
+    *max_scale = get_max_info_scale (assign);
 
-    if (!width)
-        width = &d;
-    if (!height)
-        height = &d;
-    if (!avg_scale)
-        avg_scale = &df;
-    
     /* Compute size of the screen */
     *width = *height = 1;
     avg_screen_scale = 0;
@@ -1861,7 +1861,7 @@ get_required_virtual_size (CrtcAssignment *assign, int *width, int *height, floa
         GnomeRRCrtc *crtc = list->data;
         CrtcInfo *info = g_hash_table_lookup (assign->info, crtc);
         int w, h;
-        float scale = 1.0f;
+        float scale = MINIMUM_LOGICAL_SCALE_FACTOR;
 
         scale = ceilf (*max_scale) / info->scale;
 
@@ -1942,14 +1942,6 @@ set_global_scale (gint scale)
     g_object_unref (settings);
 }
 
-static void
-maybe_set_window_scale (GnomeRRScreen *screen,
-                        gboolean       before,
-                        gint           max_scale)
-{
-    set_global_scale (max_scale);
-}
-
 static gboolean
 crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error)
 {
@@ -2018,7 +2010,7 @@ crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error
                                                  GNOME_RR_ROTATION_0,
                                                  NULL,
                                                  0,
-                                                 1.0f,
+                                                 MINIMUM_LOGICAL_SCALE_FACTOR,
                                                  1,
                                                  error))
 		{
@@ -2048,13 +2040,15 @@ crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error
 	state.timestamp = timestamp;
 	state.has_error = FALSE;
 	state.error = error;
-	state.global_scale = ceilf (max_scale);
-g_printerr ("MAX SCALE %f\n", max_scale);
-    // maybe_set_window_scale (assign->screen, TRUE, max_scale);
-	g_hash_table_foreach (assign->info, configure_crtc, &state);
-    maybe_set_window_scale (assign->screen, FALSE, state.global_scale);
+	state.global_scale = CLAMP (ceilf (max_scale), MINIMUM_GLOBAL_SCALE_FACTOR, MAXIMUM_GLOBAL_SCALE_FACTOR);;
 
-	success = !state.has_error;
+    g_hash_table_foreach (assign->info, configure_crtc, &state);
+    gdk_flush ();
+
+    set_global_scale (state.global_scale);
+    gdk_flush ();
+
+    success = !state.has_error;
     }
 
     gnome_rr_screen_set_primary_output (assign->screen, assign->primary);

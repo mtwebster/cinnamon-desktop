@@ -2146,30 +2146,32 @@ static void
 set_crtc_scale (GnomeRRCrtc *crtc, GnomeRRMode *mode, float scale, gint global_scale)
 {
     gchar *filter;
-    gfloat real_scale;
+    float real_scale;
+    int i;
 
     if (mode != NULL)
     {
-        real_scale = 1 / ((mode->width * scale) / (mode->width * global_scale));
+        real_scale = 1 / (scale / global_scale);
     }
     else
     {
-        real_scale = 1.0f;
+        real_scale = MINIMUM_LOGICAL_SCALE_FACTOR;
     }
+
+    g_debug ("\n\nTransforming based on:\n"
+             "global ui scale: %d\n"
+             "requested logical scale: %.2f\n"
+             "xrandr transform value: %.2f (%d)\n",
+             global_scale, scale,
+             real_scale, XDoubleToFixed (real_scale));
 
     XTransform transform =  {{
                     { XDoubleToFixed (real_scale), 0                          , 0                    },
                     { 0                          , XDoubleToFixed (real_scale), 0                    },
                     { 0                          , 0                          , XDoubleToFixed (1.0) },
-                }};
-    g_printerr ("global: %d, scale: %f,  real: %f\n",global_scale, scale, real_scale);
+    }};
 
-    int i;
-    for (i = 0; i < 3; i++) {
-        g_printerr ("%d          %d          %d\n", transform.matrix[i][0], transform.matrix[i][1], transform.matrix[i][2]);
-    }
-
-    if ((real_scale) != 1.0f)
+    if ((real_scale) != 1.0)
     {
         filter = g_strdup ("bilinear");
     }
@@ -2317,7 +2319,7 @@ gnome_rr_crtc_get_position (GnomeRRCrtc *crtc,
 float
 gnome_rr_crtc_get_scale (GnomeRRCrtc           *crtc)
 {
-    g_return_val_if_fail (crtc != NULL, 1.0);
+    g_return_val_if_fail (crtc != NULL, MINIMUM_LOGICAL_SCALE_FACTOR);
 
     return crtc->scale;
 }
@@ -2396,7 +2398,7 @@ scale_from_transformation (XRRCrtcTransformAttributes *transformation)
   float scale;
 
   if (!transformation)
-    return 1.0f;
+    return MINIMUM_LOGICAL_SCALE_FACTOR;
 
   xt = &transformation->currentTransform;
 
@@ -2448,7 +2450,6 @@ gnome_rr_screen_get_current_window_scale (GnomeRRScreen *screen)
 static float
 get_crtc_scale (GnomeRRCrtc *crtc)
 {
-
     return gnome_rr_screen_get_current_window_scale (NULL) * get_transform_scale (crtc);
 }
 
@@ -2515,7 +2516,7 @@ crtc_initialize (GnomeRRCrtc        *crtc,
     crtc->current_rotation = gnome_rr_rotation_from_xrotation (info->rotation);
     crtc->rotations = gnome_rr_rotation_from_xrotation (info->rotations);
     crtc->scale = get_crtc_scale (crtc);
-    g_printerr ("SCRTCX scale: %f\n", crtc->scale);
+
     XRRFreeCrtcInfo (info);
 
     /* get an store gamma size */
@@ -2686,8 +2687,7 @@ gnome_rr_crtc_get_gamma (GnomeRRCrtc *crtc, int *size,
 
 #define SCALE_FACTORS_PER_INTEGER 4
 #define SCALE_FACTORS_STEPS (1.0 / (float) SCALE_FACTORS_PER_INTEGER)
-#define MINIMUM_SCALE_FACTOR 1.0f
-#define MAXIMUM_SCALE_FACTOR 2.0f
+
 #define MINIMUM_LOGICAL_AREA (800 * 600)
 #define MAXIMUM_REFRESH_RATE_DIFF 0.001
 
@@ -2700,6 +2700,7 @@ gnome_rr_crtc_get_gamma (GnomeRRCrtc *crtc, int *size,
  * apps to work, and it's better to just be tiny
  */
 #define HIDPI_MIN_HEIGHT 1500
+#define HIDPI_MIN_SCALED_HEIGHT 720
 
 /* From http://en.wikipedia.org/wiki/4K_resolution#Resolutions_of_common_formats */
 #define SMALLEST_4K_WIDTH 3656
@@ -2708,8 +2709,7 @@ static gboolean
 is_logical_size_large_enough (int width,
                               int height)
 {
-    g_printerr ("large enough: %d, %d\n", width, height);
-  return width * height >= MINIMUM_LOGICAL_AREA;
+  return height > HIDPI_MIN_SCALED_HEIGHT;
 }
 
 static gboolean
@@ -2717,8 +2717,8 @@ is_scale_valid_for_size (float width,
                          float height,
                          float scale)
 {
-  return scale >= MINIMUM_SCALE_FACTOR &&
-         scale <= MAXIMUM_SCALE_FACTOR &&
+  return scale >= MINIMUM_LOGICAL_SCALE_FACTOR &&
+         scale <= MAXIMUM_LOGICAL_SCALE_FACTOR &&
          is_logical_size_large_enough (floorf (width/scale), floorf (height/scale));
 }
 
@@ -2758,8 +2758,8 @@ get_closest_scale_factor_for_resolution (float width,
 
           if (current_scale >= scale + SCALE_FACTORS_STEPS ||
               current_scale <= scale - SCALE_FACTORS_STEPS ||
-              current_scale < MINIMUM_SCALE_FACTOR ||
-              current_scale > MAXIMUM_SCALE_FACTOR)
+              current_scale < MINIMUM_LOGICAL_SCALE_FACTOR ||
+              current_scale > MAXIMUM_LOGICAL_SCALE_FACTOR)
             {
               goto out;
             }
@@ -2792,8 +2792,8 @@ gnome_rr_screen_calculate_supported_scales (GnomeRRScreen     *screen,
 
   supported_scales = g_array_new (FALSE, FALSE, sizeof (float));
 
-  for (i = floorf (MINIMUM_SCALE_FACTOR);
-       i <= ceilf (MAXIMUM_SCALE_FACTOR);
+  for (i = floorf (MINIMUM_LOGICAL_SCALE_FACTOR);
+       i <= ceilf (MAXIMUM_LOGICAL_SCALE_FACTOR);
        i++)
     {
       for (j = 0; j < SCALE_FACTORS_PER_INTEGER; j++)
@@ -2813,7 +2813,7 @@ gnome_rr_screen_calculate_supported_scales (GnomeRRScreen     *screen,
     {
       float fallback_scale;
 
-      fallback_scale = 1.0;
+      fallback_scale = MINIMUM_LOGICAL_SCALE_FACTOR;
       g_array_append_val (supported_scales, fallback_scale);
     }
 
