@@ -2033,22 +2033,25 @@ crtc_assignment_apply (CrtcAssignment *assign, guint32 timestamp, GError **error
 
     if (success)
     {
-	ConfigureCrtcState state;
+        ConfigureCrtcState state;
 
-	gnome_rr_screen_set_size (assign->screen, width, height, width_mm, height_mm);
+        state.timestamp = timestamp;
+        state.has_error = FALSE;
+        state.error = error;
+        state.global_scale = CLAMP (ceilf (max_scale), MINIMUM_GLOBAL_SCALE_FACTOR, MAXIMUM_GLOBAL_SCALE_FACTOR);;
+        gnome_rr_screen_set_size (assign->screen, width, height, width_mm, height_mm);
+        gdk_flush ();
 
-	state.timestamp = timestamp;
-	state.has_error = FALSE;
-	state.error = error;
-	state.global_scale = CLAMP (ceilf (max_scale), MINIMUM_GLOBAL_SCALE_FACTOR, MAXIMUM_GLOBAL_SCALE_FACTOR);;
+        g_hash_table_foreach (assign->info, configure_crtc, &state);
+        gdk_flush ();
 
-    g_hash_table_foreach (assign->info, configure_crtc, &state);
-    gdk_flush ();
+        gnome_rr_screen_set_size (assign->screen, width, height, width_mm, height_mm);
+        gdk_flush ();
 
-    set_global_scale (state.global_scale);
-    gdk_flush ();
+        set_global_scale (state.global_scale);
+        gdk_flush ();
 
-    success = !state.has_error;
+        success = !state.has_error;
     }
 
     gnome_rr_screen_set_primary_output (assign->screen, assign->primary);

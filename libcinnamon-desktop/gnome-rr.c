@@ -996,6 +996,8 @@ gnome_rr_screen_set_size (GnomeRRScreen *screen,
 {
     g_return_if_fail (GNOME_IS_RR_SCREEN (screen));
 
+    g_debug ("Setting screen size: %d x %d, %dmm x %dmm\n", width, height, mm_width, mm_height);
+
     gdk_error_trap_push ();
     XRRSetScreenSize (screen->priv->xdisplay, screen->priv->xroot,
 		      width, height, mm_width, mm_height);
@@ -2241,7 +2243,7 @@ gnome_rr_crtc_set_config_with_time (GnomeRRCrtc      *crtc,
     gdk_error_trap_push ();
 
     set_crtc_scale (crtc, mode, scale, global_scale);
-
+    gdk_flush ();
     status = XRRSetCrtcConfig (DISPLAY (crtc), info->resources, crtc->id,
 			       timestamp, 
 			       x, y,
