@@ -999,7 +999,7 @@ gnome_rr_screen_set_size (GnomeRRScreen *screen,
 {
     g_return_if_fail (GNOME_IS_RR_SCREEN (screen));
 
-    g_debug ("Setting screen size: %d x %d, %dmm x %dmm\n", width, height, mm_width, mm_height);
+    g_debug ("Setting screen size: %d x %d, %dmm x %dmm", width, height, mm_width, mm_height);
 
     gdk_error_trap_push ();
     XRRSetScreenSize (screen->priv->xdisplay, screen->priv->xroot,
@@ -2153,21 +2153,20 @@ set_crtc_scale (GnomeRRCrtc *crtc, GnomeRRMode *mode, float scale, gint global_s
     gchar *filter;
     float real_scale;
     int i;
+    int looks_like_w, looks_like_h;
 
-    if (mode != NULL)
-    {
-        real_scale = 1 / (scale / global_scale);
-    }
-    else
-    {
-        real_scale = MINIMUM_LOGICAL_SCALE_FACTOR;
-    }
+    real_scale = global_scale / scale;
+
+    looks_like_w = gnome_rr_mode_get_width (mode) * real_scale / global_scale;
+    looks_like_h = gnome_rr_mode_get_height (mode) * real_scale / global_scale;
 
     g_debug ("\n\nTransforming based on:\n"
              "global ui scale: %d\n"
              "requested logical scale: %.2f\n"
+             "requested logical size: %dx%d\n"
              "xrandr transform value: %.2f (%d)\n",
              global_scale, scale,
+             looks_like_w, looks_like_h,
              real_scale, XDoubleToFixed (real_scale));
 
     XTransform transform =  {{
@@ -2246,7 +2245,6 @@ gnome_rr_crtc_set_config_with_time (GnomeRRCrtc      *crtc,
     gdk_error_trap_push ();
 
     set_crtc_scale (crtc, mode, scale, global_scale);
-    gdk_flush ();
     status = XRRSetCrtcConfig (DISPLAY (crtc), info->resources, crtc->id,
 			       timestamp, 
 			       x, y,
@@ -2403,7 +2401,7 @@ scale_from_transformation (XRRCrtcTransformAttributes *transformation)
   float scale;
 
   if (!transformation)
-    return MINIMUM_LOGICAL_SCALE_FACTOR;
+    return 1.0f;
 
   xt = &transformation->currentTransform;
 
@@ -2449,7 +2447,7 @@ gnome_rr_screen_get_current_window_scale (GnomeRRScreen *screen)
         window_scale = g_value_get_int (&value);
     }
 
-    return MAX (1, window_scale);
+    return CLAMP (window_scale, MINIMUM_GLOBAL_SCALE_FACTOR, MAXIMUM_GLOBAL_SCALE_FACTOR);
 }
 
 static float
