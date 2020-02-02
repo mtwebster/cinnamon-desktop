@@ -71,6 +71,9 @@ struct GnomeRROutputInfoPrivate
     char *		display_name;
     gboolean            primary;
     float       scale;
+    gboolean    doublescan;
+    gboolean    interlaced;
+    gboolean    vsync;
 };
 
 struct GnomeRRConfigPrivate

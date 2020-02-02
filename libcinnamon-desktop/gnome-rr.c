@@ -115,6 +115,9 @@ struct GnomeRRMode
     int			width;
     int			height;
     int			freq;		/* in mHz */
+    gboolean    doublescan;
+    gboolean    interlaced;
+    gboolean    vsync;
 };
 
 /* GnomeRRCrtc */
@@ -2561,6 +2564,13 @@ gnome_rr_mode_get_width (GnomeRRMode *mode)
     return mode->width;
 }
 
+guint
+gnome_rr_mode_get_height (GnomeRRMode *mode)
+{
+    g_return_val_if_fail (mode != NULL, 0);
+    return mode->height;
+}
+
 int
 gnome_rr_mode_get_freq (GnomeRRMode *mode)
 {
@@ -2575,11 +2585,20 @@ gnome_rr_mode_get_freq_f (GnomeRRMode *mode)
     return (mode->freq) / 1000.0;
 }
 
-guint
-gnome_rr_mode_get_height (GnomeRRMode *mode)
+void
+gnome_rr_mode_get_flags            (GnomeRRMode           *mode,
+                                    gboolean              *doublescan,
+                                    gboolean              *interlaced,
+                                    gboolean              *vsync)
 {
-    g_return_val_if_fail (mode != NULL, 0);
-    return mode->height;
+    g_return_if_fail (mode != NULL);
+
+    if (doublescan)
+        *doublescan = mode->doublescan;
+    if (interlaced)
+        *interlaced = mode->interlaced;
+    if (vsync)
+        *vsync = mode->vsync;
 }
 
 static void
@@ -2592,6 +2611,9 @@ mode_initialize (GnomeRRMode *mode, XRRModeInfo *info)
     mode->width = info->width;
     mode->height = info->height;
     mode->freq = info->dotClock / ((float)info->hTotal * info->vTotal) * 1000;
+    mode->doublescan = (info->modeFlags & RR_DoubleScan);
+    mode->interlaced = (info->modeFlags & RR_Interlace);
+    mode->vsync = (info->modeFlags & RR_VSyncPositive);
 }
 
 static GnomeRRMode *

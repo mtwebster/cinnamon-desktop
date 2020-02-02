@@ -118,8 +118,8 @@ parse_int (const char *text)
     return strtol (text, NULL, 0);
 }
 
-static guint
-parse_uint (const char *text)
+static guint64
+parse_uint64 (const char *text)
 {
     return strtoul (text, NULL, 0);
 }
@@ -302,7 +302,7 @@ handle_text (GMarkupParseContext *context,
     {
 	parser->output->priv->connected = TRUE;
 
-	parser->output->priv->serial = parse_uint (text);
+	parser->output->priv->serial = parse_uint64 (text);
     }
     else if (stack_is (parser, "width", "output", "configuration", TOPLEVEL_ELEMENT, NULL))
     {
@@ -379,6 +379,13 @@ handle_text (GMarkupParseContext *context,
 	{
 	    parser->output->priv->primary = TRUE;
 	}
+    }
+    else if (stack_is (parser, "modeflags", "output", "configuration", TOPLEVEL_ELEMENT, NULL))
+    {
+        guint64 mode_flags = parse_uint64 (text);
+        parser->output->priv->doublescan = (mode_flags & RR_DoubleScan);
+        parser->output->priv->interlaced = (mode_flags & RR_Interlace);
+        parser->output->priv->vsync = (mode_flags & RR_VSyncPositive);
     }
     else
     {
@@ -546,6 +553,9 @@ gnome_rr_config_load_current (GnomeRRConfig *config, GError **error)
 	    output->priv->rate = -1.0f;
         output->priv->scale = MINIMUM_LOGICAL_SCALE_FACTOR;
 	    output->priv->rotation = GNOME_RR_ROTATION_0;
+        output->priv->doublescan = FALSE;
+        output->priv->interlaced = FALSE;
+        output->priv->interlaced = FALSE;
 	}
 	else
 	{
@@ -591,6 +601,11 @@ gnome_rr_config_load_current (GnomeRRConfig *config, GError **error)
 		output->priv->rotation = gnome_rr_crtc_get_current_rotation (crtc);
 
         output->priv->scale = gnome_rr_crtc_get_scale (crtc);
+
+        gnome_rr_mode_get_flags (mode,
+                                 &output->priv->doublescan,
+                                 &output->priv->interlaced,
+                                 &output->priv->vsync);
 
 		if (output->priv->x == 0 && output->priv->y == 0) {
 			if (clone_width == -1) {
@@ -1087,6 +1102,21 @@ get_reflect_y (GnomeRRRotation r)
     return yes_no (r & GNOME_RR_REFLECT_Y);
 }
 
+static guint64
+construct_flags (GnomeRROutputInfo *output)
+{
+    guint out = 0;
+
+    if (output->priv->doublescan)
+        out |= RR_DoubleScan;
+    if (output->priv->interlaced)
+        out |= RR_Interlace;
+    if (output->priv->vsync)
+        out |= RR_VSyncPositive;
+
+    return out;
+}
+
 static void
 emit_configuration (GnomeRRConfig *config,
 		    GString *string)
@@ -1129,6 +1159,9 @@ emit_configuration (GnomeRRConfig *config,
 		string, "          <y>%d</y>\n", output->priv->y);
 	    g_string_append_printf (
         string, "          <scale>%f</scale>\n", output->priv->scale);
+        guint64 flags = construct_flags (output);
+        g_string_append_printf (
+        string, "          <modeflags>%lu</modeflags>\n", flags);
         g_string_append_printf (
 		string, "          <rotation>%s</rotation>\n", get_rotation_name (output->priv->rotation));
 	    g_string_append_printf (

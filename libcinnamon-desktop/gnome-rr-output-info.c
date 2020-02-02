@@ -183,6 +183,33 @@ void gnome_rr_output_info_set_rotation (GnomeRROutputInfo *self, GnomeRRRotation
     self->priv->rotation = rotation;
 }
 
+void gnome_rr_output_info_get_flags (GnomeRROutputInfo *self,
+                                     gboolean          *doublescan,
+                                     gboolean          *interlaced,
+                                     gboolean          *vsync)
+{
+    g_return_if_fail (GNOME_IS_RR_OUTPUT_INFO (self));
+
+    if (doublescan)
+        *doublescan = self->priv->doublescan;
+    if (interlaced)
+        *interlaced = self->priv->interlaced;
+    if (vsync)
+        *vsync = self->priv->vsync;
+}
+
+void gnome_rr_output_info_set_flags (GnomeRROutputInfo *self,
+                                     gboolean           doublescan,
+                                     gboolean           interlaced,
+                                     gboolean           vsync)
+{
+    g_return_if_fail (GNOME_IS_RR_OUTPUT_INFO (self));
+
+    self->priv->doublescan = doublescan;
+    self->priv->interlaced = interlaced;
+    self->priv->vsync = vsync;
+}
+
 /**
  * gnome_rr_output_info_is_connected:
  *

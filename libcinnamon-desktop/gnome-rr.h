@@ -193,7 +193,10 @@ guint           gnome_rr_mode_get_width            (GnomeRRMode           *mode)
 guint           gnome_rr_mode_get_height           (GnomeRRMode           *mode);
 int             gnome_rr_mode_get_freq             (GnomeRRMode           *mode);
 double          gnome_rr_mode_get_freq_f           (GnomeRRMode           *mode);
-
+void            gnome_rr_mode_get_flags            (GnomeRRMode           *mode,
+                                                    gboolean              *doublescan,
+                                                    gboolean              *interlaced,
+                                                    gboolean              *vsync);
 /* GnomeRRCrtc */
 guint32         gnome_rr_crtc_get_id               (GnomeRRCrtc           *crtc);
 

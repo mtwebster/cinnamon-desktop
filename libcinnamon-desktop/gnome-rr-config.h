@@ -92,6 +92,14 @@ void     gnome_rr_output_info_set_primary (GnomeRROutputInfo *self, gboolean pri
 int gnome_rr_output_info_get_preferred_width  (GnomeRROutputInfo *self);
 int gnome_rr_output_info_get_preferred_height (GnomeRROutputInfo *self);
 
+void gnome_rr_output_info_get_flags (GnomeRROutputInfo *self,
+                                     gboolean          *doublescan,
+                                     gboolean          *interlaced,
+                                     gboolean          *vsync);
+void gnome_rr_output_info_set_flags (GnomeRROutputInfo *self,
+                                     gboolean           doublescan,
+                                     gboolean           interlaced,
+                                     gboolean           vsync);
 typedef struct
 {
     GObject parent;
