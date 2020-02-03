@@ -700,6 +700,39 @@ gnome_rr_config_load_current (GnomeRRConfig *config, GError **error)
     return TRUE;
 }
 
+static void
+ensure_scale_factor (GnomeRRConfig     *current,
+                     GnomeRROutputInfo *info_from_file)
+{
+    /* Loading an old config for the first time, there probably won't be any
+     * scale factor.  If this happens, give it the matching current output's
+     * scale factor (what actual 'is' right now) - to maintain their existing
+     * configuration. */
+    if (info_from_file->priv->scale == 0)
+    {
+        int k;
+
+        for (k = 0; current->priv->outputs[k] != NULL; ++k)
+        {
+            gchar *current_output_name, *new_output_name;
+
+            current_output_name = current->priv->outputs[k]->priv->name;
+            new_output_name = info_from_file->priv->name;
+
+            if (g_strcmp0 (current_output_name, new_output_name) == 0)
+            {
+                info_from_file->priv->scale = current->priv->outputs[k]->priv->scale;
+            }
+        }
+    }
+
+
+    if (info_from_file->priv->scale == 0)
+    {
+        info_from_file->priv->scale = MINIMUM_LOGICAL_SCALE_FACTOR;
+    }
+}
+
 gboolean
 gnome_rr_config_load_filename (GnomeRRConfig *result, const char *filename, GError **error)
 {
@@ -723,24 +756,29 @@ gnome_rr_config_load_filename (GnomeRRConfig *result, const char *filename, GErr
 	{
 	    if (gnome_rr_config_match (configs[i], current))
 	    {
-		int j;
-		GPtrArray *array;
-		result->priv->clone = configs[i]->priv->clone;
+            int j;
+            GPtrArray *array;
+            result->priv->clone = configs[i]->priv->clone;
 
-		array = g_ptr_array_new ();
-		for (j = 0; configs[i]->priv->outputs[j] != NULL; j++) {
-                    g_object_ref (configs[i]->priv->outputs[j]);
-		    g_ptr_array_add (array, configs[i]->priv->outputs[j]);
-		}
-		g_ptr_array_add (array, NULL);
-		result->priv->outputs = (GnomeRROutputInfo **) g_ptr_array_free (array, FALSE);
+            array = g_ptr_array_new ();
+            for (j = 0; configs[i]->priv->outputs[j] != NULL; j++) {
+                int k;
+                g_object_ref (configs[i]->priv->outputs[j]);
+                g_ptr_array_add (array, configs[i]->priv->outputs[j]);
 
-		found = TRUE;
-		break;
-	    }
-	    g_object_unref (configs[i]);
-	}
-	g_free (configs);
+                ensure_scale_factor (current, configs[i]->priv->outputs[j]);
+            }
+            g_ptr_array_add (array, NULL);
+            result->priv->outputs = (GnomeRROutputInfo **) g_ptr_array_free (array, FALSE);
+
+            found = TRUE;
+            break;
+        }
+
+        g_object_unref (configs[i]);
+    }
+
+    g_free (configs);
 
 	if (!found)
 	    g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_NO_MATCHING_CONFIG,
@@ -1797,7 +1835,8 @@ real_assign_crtcs (GnomeRRScreen *screen,
         GnomeRRCrtc *crtc = crtcs[i];
         int crtc_id = gnome_rr_crtc_get_id (crtc);
         int pass;
-
+        g_debug (_("Trying modes for CRTC %d"),
+                 crtc_id);
         g_string_append_printf (accumulated_error,
                                 _("Trying modes for CRTC %d\n"),
                                 crtc_id);
