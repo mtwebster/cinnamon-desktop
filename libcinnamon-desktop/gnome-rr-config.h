@@ -160,5 +160,6 @@ GnomeRROutputInfo **gnome_rr_config_get_outputs  (GnomeRRConfig  *configuration)
 
 char *gnome_rr_config_get_backup_filename (void);
 char *gnome_rr_config_get_intended_filename (void);
+char *gnome_rr_config_get_legacy_filename (void);
 
 #endif

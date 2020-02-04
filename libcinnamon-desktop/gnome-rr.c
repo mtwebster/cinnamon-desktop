@@ -49,6 +49,10 @@
 
 #define SERVERS_RANDR_IS_AT_LEAST_1_3(priv) (priv->rr_major_version > 1 || (priv->rr_major_version == 1 && priv->rr_minor_version >= 3))
 
+#define INTERFACE_SETTINGS "org.cinnamon.desktop.interface"
+#define GLOBAL_SCALE_FACTOR_KEY "scaling-factor"
+#define USE_UPSCALING_KEY "upscale-fractional-scaling"
+
 enum {
     SCREEN_PROP_0,
     SCREEN_PROP_GDK_SCREEN,
@@ -743,6 +747,8 @@ gnome_rr_screen_initable_init (GInitable *initable, GCancellable *canc, GError *
     int event_base;
     int ignore;
 
+    priv->interface_settings = g_settings_new ("org.cinnamon.desktop.interface");
+
     priv->connector_type_atom = XInternAtom (dpy, "ConnectorType", FALSE);
 
     if (XRRQueryExtension (dpy, &event_base, &ignore))
@@ -796,6 +802,8 @@ gnome_rr_screen_finalize (GObject *gobject)
 
     if (screen->priv->info)
       screen_info_free (screen->priv->info);
+
+    g_clear_object (&screen->priv->interface_settings);
 
     G_OBJECT_CLASS (gnome_rr_screen_parent_class)->finalize (gobject);
 }
@@ -2148,7 +2156,10 @@ xrotation_from_rotation (GnomeRRRotation r)
 }
 
 static void
-set_crtc_scale (GnomeRRCrtc *crtc, GnomeRRMode *mode, float scale, gint global_scale)
+set_crtc_scale (GnomeRRCrtc *crtc,
+                GnomeRRMode *mode,
+                float        scale,
+                guint        global_scale)
 {
     gchar *filter;
     float real_scale;
@@ -2200,7 +2211,7 @@ gnome_rr_crtc_set_config_with_time (GnomeRRCrtc      *crtc,
 				    GnomeRROutput   **outputs,
 				    int               n_outputs,
                     float             scale,
-                    gint              global_scale,
+                    guint             global_scale,
 				    GError          **error)
 {
     ScreenInfo *info;
@@ -2431,8 +2442,8 @@ get_transform_scale (GnomeRRCrtc *crtc)
     return ret;
 }
 
-int
-gnome_rr_screen_get_current_window_scale (GnomeRRScreen *screen)
+guint
+gnome_rr_screen_get_global_scale (GnomeRRScreen *screen)
 {
     GdkScreen *gdkscreen;
     GValue value = G_VALUE_INIT;
@@ -2447,13 +2458,29 @@ gnome_rr_screen_get_current_window_scale (GnomeRRScreen *screen)
         window_scale = g_value_get_int (&value);
     }
 
-    return CLAMP (window_scale, MINIMUM_GLOBAL_SCALE_FACTOR, MAXIMUM_GLOBAL_SCALE_FACTOR);
+    return (guint) CLAMP (window_scale, MINIMUM_GLOBAL_SCALE_FACTOR, MAXIMUM_GLOBAL_SCALE_FACTOR);
+}
+
+void
+gnome_rr_screen_set_global_scale (GnomeRRScreen *screen,
+                                  guint           scale_factor)
+{
+    g_settings_set_uint (screen->priv->interface_settings,
+                         GLOBAL_SCALE_FACTOR_KEY,
+                         scale_factor);
+}
+
+gboolean
+gnome_rr_screen_get_use_upscaling (GnomeRRScreen *screen)
+{
+    return g_settings_get_boolean (screen->priv->interface_settings,
+                                   USE_UPSCALING_KEY);
 }
 
 static float
 get_crtc_scale (GnomeRRCrtc *crtc)
 {
-    return gnome_rr_screen_get_current_window_scale (NULL) * get_transform_scale (crtc);
+    return gnome_rr_screen_get_global_scale (NULL) * get_transform_scale (crtc);
 }
 
 static gboolean

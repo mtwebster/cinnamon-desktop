@@ -42,8 +42,9 @@
 #include "edid.h"
 #include "gnome-rr-private.h"
 
-#define CONFIG_INTENDED_BASENAME "monitors.xml"
-#define CONFIG_BACKUP_BASENAME "monitors.xml.backup"
+#define CONFIG_INTENDED_BASENAME "cinnamon-monitors.xml"
+#define CONFIG_BACKUP_BASENAME "cinnamon-monitors.xml.backup"
+#define CONFIG_LEGACY_BASENAME "monitors.xml"
 
 /* Look for DPI_FALLBACK in:
  * http://git.gnome.org/browse/gnome-settings-daemon/tree/plugins/xsettings/gsd-xsettings-manager.c
@@ -86,7 +87,7 @@ typedef struct CrtcAssignment CrtcAssignment;
 static gboolean         crtc_assignment_apply (CrtcAssignment   *assign,
 					       guint32           timestamp,
 					       GError          **error,
-                           gint             *global_scale);
+                           guint            *global_scale);
 static CrtcAssignment  *crtc_assignment_new   (GnomeRRScreen      *screen,
 					       GnomeRROutputInfo **outputs,
 					       GError            **error);
@@ -829,6 +830,16 @@ gnome_rr_config_new_stored (GnomeRRScreen *screen, GError **error)
 
     success = gnome_rr_config_load_filename (self, filename, error);
 
+    if (!success)
+    {
+        g_clear_error (error);
+        g_debug ("existing monitor config (%s) not found.  Looking for legacy configuration (monitors.xml)", filename);
+        g_free (filename);
+        filename = gnome_rr_config_get_legacy_filename ();
+
+        success = gnome_rr_config_load_filename (self, filename, error);
+    }
+
     g_free (filename);
 
     if (success)
@@ -1108,6 +1119,13 @@ gnome_rr_config_get_intended_filename (void)
     return g_build_filename (g_get_user_config_dir (), CONFIG_INTENDED_BASENAME, NULL);
 }
 
+char *
+gnome_rr_config_get_legacy_filename (void)
+{
+    ensure_config_directory ();
+    return g_build_filename (g_get_user_config_dir (), CONFIG_LEGACY_BASENAME, NULL);
+}
+
 static const char *
 get_rotation_name (GnomeRRRotation r)
 {
@@ -1342,7 +1360,6 @@ gnome_rr_config_save (GnomeRRConfig *configuration, GError **error)
     output = g_string_new ("");
 
     backup_filename = gnome_rr_config_get_backup_filename ();
-    // intended_filename = g_strdup ("/home/mtwebster/.config/monitors.testing");
     intended_filename = gnome_rr_config_get_intended_filename ();
 
     configurations = configurations_read_from_file (intended_filename, NULL); /* NULL-GError */
@@ -1380,18 +1397,6 @@ gnome_rr_config_save (GnomeRRConfig *configuration, GError **error)
     return result;
 }
 
-static void
-set_global_scale (gint scale)
-{
-    GSettings *settings;
-
-    settings = g_settings_new ("org.cinnamon.desktop.interface");
-
-    g_settings_set_uint (settings, "scaling-factor", scale);
-
-    g_object_unref (settings);
-}
-
 gboolean
 gnome_rr_config_apply_with_time (GnomeRRConfig *config,
 				 GnomeRRScreen *screen,
@@ -1402,7 +1407,7 @@ gnome_rr_config_apply_with_time (GnomeRRConfig *config,
     GnomeRROutputInfo **outputs;
     gboolean result = FALSE;
     int i;
-    gint global_scale;
+    guint global_scale;
 
     g_return_val_if_fail (GNOME_IS_RR_CONFIG (config), FALSE);
     g_return_val_if_fail (GNOME_IS_RR_SCREEN (screen), FALSE);
@@ -1431,7 +1436,7 @@ gnome_rr_config_apply_with_time (GnomeRRConfig *config,
 
     if (result == TRUE)
     {
-        set_global_scale (global_scale);
+        gnome_rr_screen_set_global_scale (screen, global_scale);
     }
 
     return result;
@@ -1711,10 +1716,10 @@ typedef struct {
     guint32 timestamp;
     gboolean has_error;
     GError **error;
-    gint global_scale;
+    guint global_scale;
 } ConfigureCrtcState;
 
-static float
+static guint
 get_max_info_scale (CrtcAssignment *assignment)
 {
     GList *infos, *iter;
@@ -1734,7 +1739,35 @@ get_max_info_scale (CrtcAssignment *assignment)
 
     g_list_free (infos);
 
-    return max_scale;
+
+    return CLAMP ((guint) ceilf (max_scale),
+                  MINIMUM_GLOBAL_SCALE_FACTOR,
+                  MAXIMUM_GLOBAL_SCALE_FACTOR);
+}
+
+static guint
+get_min_info_scale (CrtcAssignment *assignment)
+{
+    GList *infos, *iter;
+    float min_scale = 4.0f;
+
+    infos = g_hash_table_get_values (assignment->info);
+
+    for (iter = infos; iter != NULL; iter = iter->next)
+    {
+        CrtcInfo *info = iter->data;
+
+        if (info->scale < min_scale)
+        {
+            min_scale = info->scale;
+        }
+    }
+
+    g_list_free (infos);
+
+    return CLAMP ((guint) floorf (min_scale),
+                  MINIMUM_GLOBAL_SCALE_FACTOR,
+                  MAXIMUM_GLOBAL_SCALE_FACTOR);
 }
 
 static void
@@ -1933,17 +1966,27 @@ crtc_info_free (CrtcInfo *info)
 }
 
 static void
-get_required_virtual_size (CrtcAssignment *assign, int *width, int *height, float *avg_scale, int *max_scale)
+get_required_virtual_size (CrtcAssignment *assign,
+                           GnomeRRScreen  *screen,
+                           int            *width,
+                           int            *height,
+                           float          *avg_scale,
+                           guint          *global_scale)
 {
     GList *active_crtcs = g_hash_table_get_keys (assign->info);
     GList *list;
     int d, crtc_count;
     float df;
     float avg_screen_scale;
-    g_printerr ("round: %.2f %d\n", get_max_info_scale (assign), (int) ceilf (get_max_info_scale (assign)));
-    *max_scale = CLAMP ((int) ceilf (get_max_info_scale (assign)),
-                        MINIMUM_GLOBAL_SCALE_FACTOR,
-                        MAXIMUM_GLOBAL_SCALE_FACTOR) ;
+
+    if (gnome_rr_screen_get_use_upscaling (screen))
+    {
+        *global_scale = get_min_info_scale (assign);
+    }
+    else
+    {
+        *global_scale = get_max_info_scale (assign);
+    }
 
     /* Compute size of the screen */
     *width = *height = 1;
@@ -1956,7 +1999,7 @@ get_required_virtual_size (CrtcAssignment *assign, int *width, int *height, floa
         int w, h;
         float scale = 1.0f;
 
-        scale = *max_scale / info->scale;
+        scale = *global_scale / info->scale;
 
         w = gnome_rr_mode_get_width (info->mode);
         h = gnome_rr_mode_get_height (info->mode);
@@ -1976,7 +2019,10 @@ get_required_virtual_size (CrtcAssignment *assign, int *width, int *height, floa
 
     *avg_scale = avg_screen_scale;
 
-    g_debug ("Proposed screen size: %dx%d average scale: %.2f, ui scale: %d", *width, *height, *avg_scale, *max_scale);
+    g_debug ("Proposed screen size: %dx%d average scale: %.2f, ui scale: %d, using %s",
+             *width, *height, *avg_scale, *global_scale,
+             gnome_rr_screen_get_use_upscaling (screen) ? "upscaling" : "downscaling");
+
     g_list_free (active_crtcs);
 }
 
@@ -1993,9 +2039,12 @@ crtc_assignment_new (GnomeRRScreen *screen, GnomeRROutputInfo **outputs, GError 
 	int width, height;
 	int min_width, max_width, min_height, max_height;
     float scale;
-    gint max_scale; // unused
+    guint global_scale; // unused
 
-	get_required_virtual_size (assignment, &width, &height, &scale, &max_scale);
+	get_required_virtual_size (assignment,
+                               screen,
+                               &width, &height,
+                               &scale, &global_scale);
 
 	gnome_rr_screen_get_ranges (
 	    screen, &min_width, &max_width, &min_height, &max_height);
@@ -2030,7 +2079,7 @@ static gboolean
 crtc_assignment_apply (CrtcAssignment *assign,
                        guint32         timestamp,
                        GError        **error,
-                       gint           *global_scale)
+                       guint          *global_scale)
 {
     GnomeRRCrtc **all_crtcs = gnome_rr_screen_list_crtcs (assign->screen);
     int width, height;
@@ -2041,7 +2090,10 @@ crtc_assignment_apply (CrtcAssignment *assign,
     gboolean success = TRUE;
 
     /* Compute size of the screen */
-    get_required_virtual_size (assign, &width, &height, &average_scale, global_scale);
+    get_required_virtual_size (assign,
+                               assign->screen,
+                               &width, &height,
+                               &average_scale, global_scale);
 
     gnome_rr_screen_get_ranges (
 	assign->screen, &min_width, &max_width, &min_height, &max_height);
@@ -2124,7 +2176,7 @@ crtc_assignment_apply (CrtcAssignment *assign,
         state.timestamp = timestamp;
         state.has_error = FALSE;
         state.error = error;
-        state.global_scale = CLAMP (*global_scale, MINIMUM_GLOBAL_SCALE_FACTOR, MAXIMUM_GLOBAL_SCALE_FACTOR);;
+        state.global_scale = *global_scale;
         gnome_rr_screen_set_size (assign->screen, width, height, width_mm, height_mm);
 
         g_hash_table_foreach (assign->info, configure_crtc, &state);

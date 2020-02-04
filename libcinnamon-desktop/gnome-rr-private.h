@@ -40,6 +40,7 @@ struct GnomeRRScreenPrivate
     Screen *			xscreen;
     Window			xroot;
     ScreenInfo *		info;
+    GSettings *         interface_settings;
     
     int				randr_event_base;
     int				rr_major_version;

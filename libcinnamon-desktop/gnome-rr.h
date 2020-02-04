@@ -144,7 +144,10 @@ gboolean        gnome_rr_screen_get_dpms_mode      (GnomeRRScreen        *screen
 gboolean        gnome_rr_screen_set_dpms_mode      (GnomeRRScreen         *screen,
                                                     GnomeRRDpmsMode        mode,
                                                     GError              **error);
-int             gnome_rr_screen_get_current_window_scale (GnomeRRScreen   *screen);
+guint             gnome_rr_screen_get_global_scale (GnomeRRScreen   *screen);
+void            gnome_rr_screen_set_global_scale   (GnomeRRScreen   *screen,
+                                                    guint            scale_factor);
+gboolean        gnome_rr_screen_get_use_upscaling  (GnomeRRScreen        *screen);
 float *         gnome_rr_screen_calculate_supported_scales (GnomeRRScreen     *screen,
                                                             int                width,
                                                             int                height,
@@ -209,7 +212,7 @@ gboolean        gnome_rr_crtc_set_config_with_time (GnomeRRCrtc           *crtc,
 						    GnomeRROutput        **outputs,
 						    int                    n_outputs,
                             float                  scale,
-                            gint                   global_scale,
+                            guint                  global_scale,
 						    GError               **error);
 gboolean        gnome_rr_crtc_can_drive_output     (GnomeRRCrtc           *crtc,
 						    GnomeRROutput         *output);
