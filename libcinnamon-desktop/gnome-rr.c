@@ -2968,7 +2968,7 @@ gnome_rr_screen_calculate_best_global_scale (GnomeRRScreen *screen,
 
     if (real_height < HIDPI_MIN_HEIGHT)
     {
-        g_debug ("REAL height of %d for monitor %d is less than %d, so the global scale should be 1", real_height, index, HIDPI_MIN_HEIGHT);
+        g_debug ("REAL height of %d for monitor %d is less than %d, so the recommended scale will be 1", real_height, index, HIDPI_MIN_HEIGHT);
         goto out;
     }
 
@@ -2976,25 +2976,30 @@ gnome_rr_screen_calculate_best_global_scale (GnomeRRScreen *screen,
     if ((width_mm == 160 && height_mm == 90) ||
         (width_mm == 160 && height_mm == 100) ||
         (width_mm == 16 && height_mm == 9) ||
-        (width_mm == 16 && height_mm == 10))
+        (width_mm == 16 && height_mm == 10) ||
+        (width_mm == 0 || height_mm == 0))
     {
-        g_debug ("Aspect ratio instead of physical dimensions were encoded as the physical size, unable to auto-calculate"
-                 "the global scale, returning 1");
+        g_debug ("Aspect ratio instead of physical dimensions were encoded as the physical size, or the physical"
+                 " size was not set. Unable to reliably calculate the recommended scale, returning 1");
         goto out;
     }
 
     if (width_mm > 0 && height_mm > 0) {
             dpi_x = (double) real_width * monitor_scale / (width_mm / 25.4);
             dpi_y = (double) real_height * monitor_scale / (height_mm / 25.4);
-            /* We don't completely trust these values so both
-               must be high, and never pick higher ratio than
+            /* We don't completely trust these values so both must be high, and never pick higher ratio than
               2 automatically */
             if (dpi_x > HIDPI_LIMIT && dpi_y > HIDPI_LIMIT)
             {
-                g_debug ("The REAL monitor DPI of %.1f x %.1f exceeds the cutoff of %d x %d, window scale will be 2",
+                g_debug ("The REAL monitor DPI of %.1f x %.1f exceeds the cutoff of %d x %d, recommended scale will be 2",
                          dpi_x, dpi_y, HIDPI_LIMIT, HIDPI_LIMIT);
 
-                    window_scale = 2;
+                window_scale = 2;
+            }
+            else
+            {
+                g_debug ("The REAL monitor DPI of %.1f x %.1f does not meet the cutoff of %d x %d, recommended scale will be 1",
+                         dpi_x, dpi_y, HIDPI_LIMIT, HIDPI_LIMIT);
             }
     }
 
