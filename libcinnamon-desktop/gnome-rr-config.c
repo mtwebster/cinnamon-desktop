@@ -1026,6 +1026,11 @@ gnome_rr_config_equal (GnomeRRConfig  *c1,
     g_return_val_if_fail (GNOME_IS_RR_CONFIG (c1), FALSE);
     g_return_val_if_fail (GNOME_IS_RR_CONFIG (c2), FALSE);
 
+    if (c1->priv->base_scale != c2->priv->base_scale)
+    {
+        return FALSE;
+    }
+
     for (i = 0; c1->priv->outputs[i] != NULL; ++i)
     {
 	GnomeRROutputInfo *output1 = c1->priv->outputs[i];
