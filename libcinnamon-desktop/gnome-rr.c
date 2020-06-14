@@ -2461,20 +2461,24 @@ gnome_rr_screen_get_global_scale (GnomeRRScreen *screen)
     return (guint) CLAMP (window_scale, MINIMUM_GLOBAL_SCALE_FACTOR, MAXIMUM_GLOBAL_SCALE_FACTOR);
 }
 
+guint
+gnome_rr_screen_get_global_scale_setting (GnomeRRScreen *screen)
+{
+    guint scale_factor;
+
+    scale_factor = g_settings_get_uint (screen->priv->interface_settings,
+                                        GLOBAL_SCALE_FACTOR_KEY);
+
+    return scale_factor;
+}
+
 void
-gnome_rr_screen_set_global_scale (GnomeRRScreen *screen,
-                                  guint           scale_factor)
+gnome_rr_screen_set_global_scale_setting (GnomeRRScreen *screen,
+                                          guint          scale_factor)
 {
     g_settings_set_uint (screen->priv->interface_settings,
                          GLOBAL_SCALE_FACTOR_KEY,
                          scale_factor);
-}
-
-gboolean
-gnome_rr_screen_get_use_upscaling (GnomeRRScreen *screen)
-{
-    return g_settings_get_boolean (screen->priv->interface_settings,
-                                   USE_UPSCALING_KEY);
 }
 
 static float
@@ -2762,8 +2766,7 @@ is_scale_valid_for_size (float width,
                          float scale)
 {
   return scale >= MINIMUM_LOGICAL_SCALE_FACTOR &&
-         scale <= MAXIMUM_LOGICAL_SCALE_FACTOR &&
-         is_logical_size_large_enough (floorf (width/scale), floorf (height/scale));
+         scale <= MAXIMUM_LOGICAL_SCALE_FACTOR;
 }
 
 static float
